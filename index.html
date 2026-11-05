@@ -113,6 +113,8 @@ ul.plain { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .day.today { border-color: color-mix(in srgb, var(--candle) 60%, transparent); }
 .day-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; flex-wrap: wrap; }
 .day-head h3 { font-family: var(--f-display); font-weight: 400; font-size: 18px; }
+.shortrow { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.shortrow .chip { font-size: 13px; padding: 3px 11px; }
 .free { font-size: 13px; color: var(--uni); font-weight: 700; }
 .bar { position: relative; height: 22px; border-radius: 6px; background: var(--raised); overflow: hidden; }
 .seg { position: absolute; top: 0; bottom: 0; }
@@ -321,6 +323,21 @@ dialog.calm .in { max-width: 520px; margin: 0 auto; min-height: 100%; align-cont
       </div>
     </div>
 
+    <div class="card a-work">
+      <h2>Jornada reducida</h2>
+      <p class="small muted">Esos días no cuento la pausa de comida y te dejo más rato libre por la tarde. Para una víspera de festivo, añádela aquí o tócala en Semana.</p>
+      <div class="field"><span>Todas las semanas</span><div class="daypick" id="sShortDays"></div></div>
+      <div class="grid2">
+        <label class="field"><span>Salida en jornada reducida</span><input type="time" id="sShortEnd"></label>
+        <label class="field"><span>Máx. de estudio ese día (min)</span><input type="number" id="sCapShort" min="0" step="15"></label>
+      </div>
+      <div class="field"><span>Días sueltos (vísperas de festivo)</span><ul class="plain" id="shortList"></ul></div>
+      <form class="grid2" id="shortForm">
+        <input type="date" id="shortDate" aria-label="Fecha con jornada reducida" required>
+        <button class="btn" type="submit">Añadir día</button>
+      </form>
+    </div>
+
     <div class="card a-life">
       <h2>Paseo y gimnasio</h2>
       <div class="grid2">
@@ -520,7 +537,7 @@ dialog.calm .in { max-width: 520px; margin: 0 auto; min-height: 100%; align-cont
   // ================= estado =================
   function defaultSettings() {
     return {
-      work: { days: [1, 2, 3, 4, 5], start: "08:00", end: "17:00", lunch: "13:30", lunchMin: 30 },
+      work: { days: [1, 2, 3, 4, 5], start: "08:00", end: "17:00", lunch: "13:30", lunchMin: 30, shortEnd: "15:00", shortDays: [5], shortDates: [], capShort: 180 },
       dog: { start: "17:30", min: 60 },
       gym: { days: [1, 3, 5], start: "19:00", min: 60 },
       wd: ["17:00", "21:30"], we: ["09:00", "21:00"], capWd: 120, capWe: 240
@@ -564,20 +581,24 @@ dialog.calm .in { max-width: 520px; margin: 0 auto; min-height: 100%; align-cont
   let state;
   try { state = JSON.parse(localStorage.getItem(KEY)); } catch (e) { state = null; }
   if (!state || state.v !== 2) state = sampleState();
+  { const w = state.settings.work; if (!w.shortEnd) w.shortEnd = "15:00"; if (!Array.isArray(w.shortDays)) w.shortDays = [5]; if (!Array.isArray(w.shortDates)) w.shortDates = []; if (w.capShort == null) w.capShort = 180; }
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
   const S = () => state.settings;
 
   // ================= tu tiempo =================
   const race = (ds) => state.races.find((r) => r.date === ds);
   const isWorkDay = (ds) => S().work.days.includes(parse(ds).getDay());
+  const weeklyShort = (ds) => S().work.shortDays.includes(parse(ds).getDay());
+  const isShort = (ds) => isWorkDay(ds) && !race(ds) && (weeklyShort(ds) || S().work.shortDates.includes(ds));
+  const workEnd = (ds) => isShort(ds) ? S().work.shortEnd : S().work.end;
   const gymDay = (ds) => S().gym.days.includes(parse(ds).getDay()) && !race(ds);
   function blocks(ds) {
     const s = S(), out = [];
     if (race(ds)) out.push({ t: "race", s: 7 * 60, e: 22 * 60 });
     else {
       if (isWorkDay(ds)) {
-        out.push({ t: "work", s: toMin(s.work.start), e: toMin(s.work.end) });
-        if (s.work.lunchMin > 0) out.push({ t: "lunch", s: toMin(s.work.lunch), e: toMin(s.work.lunch) + +s.work.lunchMin });
+        out.push({ t: "work", s: toMin(s.work.start), e: toMin(workEnd(ds)) });
+        if (s.work.lunchMin > 0 && !isShort(ds) && toMin(s.work.lunch) < toMin(workEnd(ds))) out.push({ t: "lunch", s: toMin(s.work.lunch), e: toMin(s.work.lunch) + +s.work.lunchMin });
       }
       if (gymDay(ds)) out.push({ t: "gym", s: toMin(s.gym.start), e: toMin(s.gym.start) + +s.gym.min });
     }
@@ -585,7 +606,7 @@ dialog.calm .in { max-width: 520px; margin: 0 auto; min-height: 100%; align-cont
     return out;
   }
   function gaps(ds) {
-    const w = isWorkDay(ds) ? S().wd : S().we;
+    const w = isShort(ds) ? [S().work.shortEnd, S().wd[1]] : isWorkDay(ds) ? S().wd : S().we;
     let free = [[toMin(w[0]), toMin(w[1])]];
     blocks(ds).filter((b) => b.t !== "lunch").forEach((b) => {
       free = free.flatMap(([a, z]) => b.e <= a || b.s >= z ? [[a, z]] : [[a, b.s], [b.e, z]].filter(([x, y]) => y - x > 0));
@@ -595,7 +616,7 @@ dialog.calm .in { max-width: 520px; margin: 0 auto; min-height: 100%; align-cont
   function capOf(ds) {
     if (race(ds)) return 0;
     const free = gaps(ds).reduce((a, [x, y]) => a + y - x, 0);
-    return Math.max(0, Math.min(free, isWorkDay(ds) ? +S().capWd : +S().capWe));
+    return Math.max(0, Math.min(free, isShort(ds) ? +S().work.capShort : isWorkDay(ds) ? +S().capWd : +S().capWe));
   }
 
   // ================= lo que tardas de verdad =================
@@ -659,7 +680,7 @@ dialog.calm .in { max-width: 520px; margin: 0 auto; min-height: 100%; align-cont
   let P;
   function render() {
     P = plan();
-    renderHoy(); renderSemana(); renderPlazos(); renderFactor(); renderRaces();
+    renderHoy(); renderSemana(); renderPlazos(); renderFactor(); renderRaces(); renderShort();
   }
 
   // ================= HOY =================
@@ -687,7 +708,7 @@ dialog.calm .in { max-width: 520px; margin: 0 auto; min-height: 100%; align-cont
     const s = S(), rt = state.routines[t] || {};
     let line = "";
     if (r) line += slot("plain", "a-race", "Carrera: " + esc(r.name), "");
-    else if (isWorkDay(t)) line += slot("plain", "a-work", "Trabajo", hm(toMin(s.work.start)) + "–" + hm(toMin(s.work.end)));
+    else if (isWorkDay(t)) line += slot("plain", "a-work", isShort(t) ? "Jornada reducida" : "Trabajo", hm(toMin(s.work.start)) + "–" + hm(toMin(workEnd(t))));
     line += slotTick("dog", "a-life", "Paseo con " + esc(state.dogName || "el perro"), hm(toMin(s.dog.start)) + " · " + dur(Math.max(60, s.dog.min)), rt.dog);
     if (gymDay(t)) line += slotTick("gym", "a-life", "Gimnasio", hm(toMin(s.gym.start)), rt.gym);
     $("dayline").innerHTML = line;
@@ -765,6 +786,8 @@ dialog.calm .in { max-width: 520px; margin: 0 auto; min-height: 100%; align-cont
         chunks.map((c) => '<div class="di a-' + c.d.area + '"><span class="tag">' + AREA[c.d.area] + '</span><span class="t">' + esc(c.s.name) + ' <span class="muted">· ' + esc(c.d.title) + '</span></span><span class="m">' + dur(c.min) + "</span></div>").join("");
       html += '<div class="day' + (ds === t ? " today" : "") + '"><div class="day-head"><h3>' + (ds === t ? "Hoy, " : ds === addDays(t, 1) ? "Mañana, " : "") + DOWL[d.getDay()] + " " + d.getDate() + "</h3>" +
         '<span class="free">' + (r ? "Día de carrera" : cap ? dur(planned) + " de estudio · " + dur(cap) + " disponibles" : "Sin hueco para estudiar") + "</span></div>" +
+        (isWorkDay(ds) && !r ? '<div class="shortrow"><span class="xs muted">Trabajo ' + hm(toMin(S().work.start)) + "–" + hm(toMin(workEnd(ds))) + "</span>" +
+          (weeklyShort(ds) ? '<span class="pill calm">Reducida todas las semanas</span>' : '<button class="chip" type="button" data-short="' + ds + '" aria-pressed="' + isShort(ds) + '">' + (isShort(ds) ? "Jornada reducida ✓" : "¿Jornada reducida?") + "</button>") + "</div>" : "") +
         '<div class="bar">' + segs + "</div>" + (i === 0 ? '<div class="ticks">' + [8, 12, 16, 20].map((h) => '<span style="left:' + pct(h * 60) + '%">' + h + "h</span>").join("") + "</div>" : "") +
         (items ? '<div class="day-items">' + items + "</div>" : '<div class="xs muted">' + (r ? esc(r.name) : "Día tranquilo.") + "</div>") + "</div>";
     }
@@ -868,7 +891,19 @@ dialog.calm .in { max-width: 520px; margin: 0 auto; min-height: 100%; align-cont
     bind("sCapWe", () => s.capWe, (v) => { s.capWe = Math.max(0, +v || 0); });
     daypick($("sWorkDays"), s.work.days, () => { save(); render(); });
     daypick($("sGymDays"), s.gym.days, () => { save(); render(); });
+    daypick($("sShortDays"), s.work.shortDays, () => { save(); render(); });
+    bind("sShortEnd", () => s.work.shortEnd, (v) => { s.work.shortEnd = v || "15:00"; });
+    bind("sCapShort", () => s.work.capShort, (v) => { s.work.capShort = Math.max(0, +v || 0); });
   }
+  function renderShort() {
+    const ds = S().work.shortDates.slice().sort();
+    $("shortList").innerHTML = ds.map((d) => '<li class="row' + (diff(d) < 0 ? " done" : "") + '"><span class="grow">' + cap1(DOWL[parse(d).getDay()]) + " " + parse(d).getDate() + " de " + MONL[parse(d).getMonth()] + (isWorkDay(d) ? "" : ' <span class="xs muted">(no trabajas ese día)</span>') + '</span><button class="x" type="button" data-unshort="' + d + '" aria-label="Quitar día">✕</button></li>').join("") || '<li class="xs muted">Ninguno por ahora.</li>';
+  }
+  $("shortForm").onsubmit = (e) => {
+    e.preventDefault(); const d = $("shortDate").value; if (!d) return;
+    if (!S().work.shortDates.includes(d)) S().work.shortDates.push(d);
+    $("shortDate").value = ""; save(); render(); toast("Apuntado: el " + fmt(d) + " sales a las " + hm(toMin(S().work.shortEnd)) + ".");
+  };
   function renderRaces() {
     const rs = state.races.slice().sort((a, b) => a.date.localeCompare(b.date));
     $("raceList").innerHTML = rs.map((r) => '<li class="row' + (diff(r.date) < 0 ? " done" : "") + '"><span class="tag a-race">' + fmt(r.date) + '</span><span class="grow">' + esc(r.name) + '</span><button class="x" type="button" data-delrace="' + r.id + '" aria-label="Quitar carrera">✕</button></li>').join("") || '<li class="xs muted">No hay carreras apuntadas.</li>';
@@ -1069,7 +1104,7 @@ dialog.calm .in { max-width: 520px; margin: 0 auto; min-height: 100%; align-cont
 
   // ================= clics generales =================
   document.addEventListener("click", (e) => {
-    const el = e.target.closest("[data-step],[data-routine],[data-task],[data-deltask],[data-focus],[data-edit],[data-markdone],[data-undone],[data-go],[data-areaf],[data-inboxdate],[data-delinbox],[data-delrace],[data-day]");
+    const el = e.target.closest("[data-step],[data-routine],[data-task],[data-deltask],[data-focus],[data-edit],[data-markdone],[data-undone],[data-go],[data-areaf],[data-inboxdate],[data-delinbox],[data-delrace],[data-day],[data-short],[data-unshort]");
     if (!el) return;
     const ds = el.dataset;
     if (ds.step) { e.preventDefault(); completeStep(ds.step); }
@@ -1084,6 +1119,8 @@ dialog.calm .in { max-width: 520px; margin: 0 auto; min-height: 100%; align-cont
     else if (ds.areaf) { areaF = ds.areaf; renderPlazos(); }
     else if (ds.inboxdate) { const x = state.inbox.find((y) => y.id === ds.inboxdate); const u = understand(x.text); fromInbox = x.id; openEditor(null, { title: x.text, area: u.area || "uni", kind: u.kind }); }
     else if (ds.delinbox) { state.inbox = state.inbox.filter((y) => y.id !== ds.delinbox); save(); render(); }
+    else if (ds.short) { const L = S().work.shortDates, i = L.indexOf(ds.short); if (i >= 0) L.splice(i, 1); else L.push(ds.short); save(); render(); toast(i >= 0 ? "Vuelve a ser jornada normal." : "Jornada reducida: te dejo más tarde libre."); }
+    else if (ds.unshort) { S().work.shortDates = S().work.shortDates.filter((x) => x !== ds.unshort); save(); render(); }
     else if (ds.delrace) { state.races = state.races.filter((y) => y.id !== ds.delrace); save(); render(); }
     else if (ds.day) { monthSel = monthSel === ds.day ? null : ds.day; renderMonth(addDays(today(), wk * 7)); }
   });
