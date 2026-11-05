@@ -566,7 +566,7 @@ dialog.calm .in { max-width: 520px; margin: 0 auto; min-height: 100%; align-cont
     d0.steps.forEach((s) => { s.done = true; });
     let sat = t; while (parse(sat).getDay() !== 0) sat = addDays(sat, 1);
     return {
-      v: 2, sample: true, name: "Noelia", dogName: "",
+      v: 2, sample: true, name: "", dogName: "",
       settings: defaultSettings(),
       races: [{ id: uid(), date: addDays(sat, 7), name: "Carrera de ciclismo (ejemplo)" }],
       deadlines: [d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d0],
