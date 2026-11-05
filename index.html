@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mi Agenda de Plazos</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: agenda de escritorio — franja "Hoy" + plazos arriba, tira de 14 días, y tres columnas por área (Uni / Trabajo / TFG). */
+:root {
+  --paper: #eef1f4; --card: #ffffff; --ink: #18212b; --muted: #5b6673; --line: #d5dbe2;
+  --accent: #2b4c7e; --accent-ink: #ffffff;
+  --uni: #0f7d74; --work: #a86200; --tfg: #7a3e8c;
+  --late: #c0392b; --hot: #d9480f; --soon: #9a7700; --ok: #2f8a4a;
+  --tint: rgba(43,76,126,.07);
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: #10151b; --card: #18202a; --ink: #e6ebf0; --muted: #9aa6b2; --line: #2a3440;
+  --accent: #8fb0e6; --accent-ink: #0f1620;
+  --uni: #4fc2b6; --work: #e8a643; --tfg: #c58fd6;
+  --late: #ff6b5e; --hot: #ff8a4c; --soon: #e3c14d; --ok: #5fca7c;
+  --tint: rgba(143,176,230,.09); color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --paper: #10151b; --card: #18202a; --ink: #e6ebf0; --muted: #9aa6b2; --line: #2a3440;
+  --accent: #8fb0e6; --accent-ink: #0f1620;
+  --uni: #4fc2b6; --work: #e8a643; --tfg: #c58fd6;
+  --late: #ff6b5e; --hot: #ff8a4c; --soon: #e3c14d; --ok: #5fca7c;
+  --tint: rgba(143,176,230,.09); color-scheme: dark; }
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--paper); color: var(--ink); font: 15px/1.5 var(--f-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 48px;
+}
+.wrap { max-width: 1240px; margin: 0 auto; display: grid; gap: 20px; }
+h1, h2, h3 { font-family: var(--f-display); margin: 0; text-wrap: balance; line-height: 1.15; }
+h1 { font-size: clamp(26px, 4vw, 36px); font-weight: 700; letter-spacing: -.01em; }
+h2 { font-size: 18px; font-weight: 700; }
+h3 { font-size: 15px; font-weight: 700; }
+.label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; }
+.mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* header */
+header.top { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: end; justify-content: space-between; }
+.today-line { color: var(--muted); margin-top: 4px; }
+.today-line b { color: var(--ink); }
+.top-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { border: 1px solid var(--line); background: var(--card); padding: 7px 12px; border-radius: 8px; font-size: 14px; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+.btn.ghost { background: transparent; }
+.btn.danger { color: var(--late); }
+.btn.sm { padding: 4px 9px; font-size: 13px; }
+
+/* stats */
+.stats { display: flex; flex-wrap: wrap; gap: 8px; }
+.stat { display: flex; align-items: baseline; gap: 8px; padding: 6px 12px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); font-size: 14px; }
+.stat .n { font-family: var(--f-mono); font-weight: 600; font-size: 16px; }
+.stat.late .n { color: var(--late); } .stat.hot .n { color: var(--hot); } .stat.tfg .n { color: var(--tfg); }
+
+.banner { background: var(--tint); border: 1px dashed var(--accent); border-radius: var(--r); padding: 10px 14px; display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; font-size: 14px; }
+
+/* panels */
+.panel { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; min-width: 0; display: grid; gap: 12px; align-content: start; }
+.panel-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.row1 { display: grid; grid-template-columns: 1.15fr 1.25fr .8fr; gap: 20px; align-items: start; }
+.areas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 1060px) { .row1 { grid-template-columns: 1fr 1fr; } .row1 .focus { grid-column: 1 / -1; } .areas { grid-template-columns: 1fr 1fr; } .areas .tfg-col { grid-column: 1 / -1; } }
+@media (max-width: 720px) { .row1, .areas { grid-template-columns: 1fr; } }
+
+/* area tags */
+.tag { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+.a-uni { color: var(--uni); } .a-work { color: var(--work); } .a-tfg { color: var(--tfg); } .a-personal { color: var(--muted); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; display: inline-block; flex: none; }
+
+/* lists */
+ul.list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.task { display: flex; gap: 10px; align-items: center; padding: 6px 8px; border-radius: 8px; }
+.task:hover { background: var(--tint); }
+.task input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); flex: none; }
+.task .t { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.task.done .t { text-decoration: line-through; color: var(--muted); }
+.task .x { border: 0; background: none; color: var(--muted); padding: 2px 6px; border-radius: 6px; opacity: .6; }
+.task .x:hover { opacity: 1; color: var(--late); }
+.sub { font-size: 12px; color: var(--muted); }
+.empty { color: var(--muted); font-size: 14px; padding: 8px; border: 1px dashed var(--line); border-radius: 8px; text-align: center; }
+
+.quick { display: flex; gap: 6px; flex-wrap: wrap; }
+.quick input[type=text] { flex: 1 1 180px; min-width: 0; }
+input[type=text], input[type=date], input[type=number], select, textarea {
+  background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; min-width: 0;
+}
+textarea { resize: vertical; min-height: 60px; }
+
+/* deadlines */
+.dl { display: grid; grid-template-columns: 4px 1fr auto; gap: 0 12px; align-items: center; padding: 8px 10px 8px 0; border-radius: 8px; border: 1px solid var(--line); background: var(--card); cursor: pointer; text-align: left; width: 100%; }
+.dl:hover { border-color: var(--accent); }
+.dl .bar { align-self: stretch; border-radius: 4px 0 0 4px; background: currentColor; }
+.dl .body { min-width: 0; display: grid; gap: 2px; }
+.dl .title { font-weight: 700; overflow-wrap: anywhere; }
+.dl .meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--muted); }
+.cd { font-family: var(--f-mono); font-size: 13px; font-weight: 600; text-align: right; white-space: nowrap; padding: 2px 8px; border-radius: 6px; }
+.u-late .cd { color: var(--late); background: color-mix(in srgb, var(--late) 12%, transparent); }
+.u-hot .cd { color: var(--hot); background: color-mix(in srgb, var(--hot) 12%, transparent); }
+.u-soon .cd { color: var(--soon); background: color-mix(in srgb, var(--soon) 14%, transparent); }
+.u-later .cd { color: var(--muted); }
+.u-done { opacity: .55; } .u-done .title { text-decoration: line-through; } .u-done .cd { color: var(--ok); }
+
+.suggest { display: grid; gap: 6px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.chip-btn { border: 1px dashed var(--line); background: none; border-radius: 999px; padding: 3px 10px; font-size: 13px; text-align: left; }
+.chip-btn:hover { border-color: var(--accent); border-style: solid; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* 14-day strip */
+.strip-wrap { overflow-x: auto; }
+.strip { display: grid; grid-template-columns: repeat(14, minmax(76px, 1fr)); gap: 6px; min-width: 1080px; }
+.day { border: 1px solid var(--line); border-radius: 8px; padding: 6px; min-height: 92px; display: grid; gap: 4px; align-content: start; background: var(--card); }
+.day.we { background: var(--tint); }
+.day.is-today { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.day .dh { display: flex; justify-content: space-between; align-items: baseline; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.day .dn { font-family: var(--f-mono); font-size: 15px; font-weight: 600; color: var(--ink); }
+.day .ev { font-size: 11.5px; line-height: 1.25; padding: 2px 5px; border-radius: 4px; border-left: 3px solid currentColor; background: color-mix(in srgb, currentColor 10%, transparent); cursor: pointer; overflow-wrap: anywhere; }
+.day .ev span { color: var(--ink); }
+
+/* area columns */
+.area-head { display: flex; align-items: center; gap: 8px; }
+.area-head h2 { flex: 1; }
+.kinds { display: flex; gap: 4px; flex-wrap: wrap; }
+.filter { border: 1px solid var(--line); background: none; border-radius: 999px; padding: 1px 9px; font-size: 12px; color: var(--muted); }
+.filter[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+/* TFG */
+.progress { height: 10px; border-radius: 99px; background: var(--tint); overflow: hidden; border: 1px solid var(--line); }
+.progress > i { display: block; height: 100%; background: var(--tfg); border-radius: 99px; transition: width .3s; }
+.tfg-meta { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.ms { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 5px 6px; border-radius: 8px; }
+.ms:hover { background: var(--tint); }
+.ms input { width: 18px; height: 18px; accent-color: var(--tfg); }
+.ms.done .n { text-decoration: line-through; color: var(--muted); }
+.ms .d { font-family: var(--f-mono); font-size: 12px; color: var(--muted); white-space: nowrap; }
+.ms .x { border: 0; background: none; color: var(--muted); padding: 0 4px; opacity: .6; }
+.ms .x:hover { opacity: 1; color: var(--late); }
+.ms .d.late { color: var(--late); font-weight: 600; }
+.ms.next { background: color-mix(in srgb, var(--tfg) 10%, transparent); }
+.inline-form { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; }
+@media (max-width: 420px) { .inline-form { grid-template-columns: 1fr 1fr; } .inline-form input[type=text] { grid-column: 1 / -1; } }
+
+/* focus timer */
+.timer { font-family: var(--f-mono); font-size: 44px; font-weight: 600; letter-spacing: -.02em; text-align: center; font-variant-numeric: tabular-nums; }
+.timer-mode { text-align: center; }
+.timer-btns { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; }
+.pomos { display: flex; justify-content: center; gap: 4px; flex-wrap: wrap; min-height: 12px; }
+.pomos i { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+
+/* dialog */
+dialog { border: 1px solid var(--line); border-radius: 14px; background: var(--card); color: var(--ink); padding: 0; width: min(520px, calc(100vw - 32px)); }
+dialog::backdrop { background: rgba(10,15,22,.45); }
+dialog form { padding: 18px; display: grid; gap: 12px; }
+.fgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.fgrid .full { grid-column: 1 / -1; }
+.field { display: grid; gap: 4px; }
+.field > span { font-size: 13px; font-weight: 700; color: var(--muted); }
+.dlg-actions { display: flex; gap: 8px; justify-content: space-between; flex-wrap: wrap; }
+.dlg-actions .right { display: flex; gap: 8px; margin-left: auto; }
+.check { display: flex; gap: 8px; align-items: center; }
+@media (max-width: 420px) { .fgrid { grid-template-columns: 1fr; } }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div>
+      <div class="label">Universidad · Trabajo · TFG</div>
+      <h1>Mi agenda de plazos</h1>
+      <div class="today-line" id="todayLine"></div>
+    </div>
+    <div class="top-actions">
+      <button class="btn primary" id="addDeadlineBtn" type="button">+ Nuevo plazo</button>
+      <button class="btn" id="exportBtn" type="button">Exportar copia</button>
+      <label class="btn" for="importFile" style="display:inline-flex;align-items:center">Importar</label>
+      <input type="file" id="importFile" accept="application/json" hidden>
+    </div>
+  </header>
+
+  <div class="stats" id="stats"></div>
+  <div class="banner" id="sampleBanner" hidden>
+    <span>Estás viendo <b>datos de ejemplo</b> para que veas cómo funciona. Bórralos cuando quieras empezar con los tuyos.</span>
+    <button class="btn sm" id="clearSample" type="button">Borrar ejemplos y empezar</button>
+  </div>
+
+  <section class="row1">
+    <!-- HOY -->
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Hoy</h2>
+        <span class="sub" id="todayCount"></span>
+      </div>
+      <ul class="list" id="todayList"></ul>
+      <form class="quick" id="quickTask">
+        <input type="text" id="quickTitle" placeholder="Añadir tarea para hoy…" aria-label="Nueva tarea">
+        <select id="quickArea" aria-label="Área">
+          <option value="uni">Uni</option><option value="work">Trabajo</option><option value="tfg">TFG</option><option value="personal">Personal</option>
+        </select>
+        <button class="btn" type="submit">Añadir</button>
+      </form>
+      <div class="suggest" id="suggestBox" hidden>
+        <div class="label">Sugerido por tus plazos cercanos</div>
+        <div class="chips" id="suggestChips"></div>
+      </div>
+    </div>
+
+    <!-- PRÓXIMOS PLAZOS -->
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Próximos plazos</h2>
+        <label class="sub check"><input type="checkbox" id="showDone"> Ver entregados</label>
+      </div>
+      <ul class="list" id="upcoming"></ul>
+    </div>
+
+    <!-- FOCO -->
+    <div class="panel focus">
+      <div class="panel-head"><h2>Bloque de estudio</h2><span class="sub" id="pomoCount"></span></div>
+      <div class="timer-mode label" id="timerMode">Concentración · 25 min</div>
+      <div class="timer" id="timer" aria-live="polite">25:00</div>
+      <div class="timer-btns">
+        <button class="btn primary sm" id="tStart" type="button">Empezar</button>
+        <button class="btn sm" id="tReset" type="button">Reiniciar</button>
+        <button class="btn sm ghost" id="tSwitch" type="button">Descanso</button>
+      </div>
+      <div class="pomos" id="pomos"></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Próximas dos semanas</h2>
+      <span class="sub">Toca un plazo para editarlo</span>
+    </div>
+    <div class="strip-wrap"><div class="strip" id="strip"></div></div>
+  </section>
+
+  <section class="areas">
+    <div class="panel" id="col-uni">
+      <div class="area-head a-uni"><span class="dot"></span><h2 style="color:var(--ink)">Universidad</h2><button class="btn sm" data-add="uni" type="button">+ Plazo</button></div>
+      <div class="kinds" id="uniFilters"></div>
+      <ul class="list" id="uniList"></ul>
+    </div>
+    <div class="panel" id="col-work">
+      <div class="area-head a-work"><span class="dot"></span><h2 style="color:var(--ink)">Trabajo</h2><button class="btn sm" data-add="work" type="button">+ Plazo</button></div>
+      <ul class="list" id="workList"></ul>
+    </div>
+    <div class="panel tfg-col" id="col-tfg">
+      <div class="area-head a-tfg"><span class="dot"></span><h2 style="color:var(--ink)">TFG</h2><button class="btn sm" id="tfgEditBtn" type="button">Editar</button></div>
+      <div>
+        <div style="font-weight:700" id="tfgTitle"></div>
+        <div class="sub" id="tfgTutor"></div>
+      </div>
+      <div class="progress" aria-label="Progreso del TFG"><i id="tfgBar" style="width:0"></i></div>
+      <div class="tfg-meta"><span id="tfgPct"></span><span id="tfgDefense"></span></div>
+      <ul class="list" id="msList"></ul>
+      <form class="inline-form" id="msForm">
+        <input type="text" id="msName" placeholder="Nuevo hito (p. ej. Capítulo 3)" aria-label="Nombre del hito">
+        <input type="date" id="msDate" aria-label="Fecha del hito">
+        <button class="btn sm" type="submit">Añadir</button>
+      </form>
+    </div>
+  </section>
+</div>
+
+<!-- Diálogo de plazo -->
+<dialog id="dlg">
+  <form id="dlForm" method="dialog">
+    <h2 id="dlgTitle">Nuevo plazo</h2>
+    <div class="fgrid">
+      <label class="field full"><span>Qué hay que entregar o preparar</span><input type="text" id="fTitle" required placeholder="Práctica 2 · Bases de datos"></label>
+      <label class="field"><span>Área</span>
+        <select id="fArea"><option value="uni">Universidad</option><option value="work">Trabajo</option><option value="tfg">TFG</option></select></label>
+      <label class="field"><span>Tipo</span><select id="fKind"></select></label>
+      <label class="field"><span>Fecha límite</span><input type="date" id="fDate" required></label>
+      <label class="field"><span>Hora (opcional)</span><input type="text" id="fTime" placeholder="23:59" inputmode="numeric"></label>
+      <label class="field full"><span>Asignatura / proyecto</span><input type="text" id="fSubject" placeholder="Bases de Datos II"></label>
+      <label class="field full"><span>Notas</span><textarea id="fNotes" placeholder="Formato de entrega, plataforma, grupo…"></textarea></label>
+      <label class="check full"><input type="checkbox" id="fDone"> Ya está entregado / hecho</label>
+    </div>
+    <div class="dlg-actions">
+      <button class="btn danger" type="button" id="fDelete">Eliminar</button>
+      <div class="right">
+        <button class="btn" type="button" id="fCancel">Cancelar</button>
+        <button class="btn primary" type="submit">Guardar</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+<!-- Diálogo TFG -->
+<dialog id="tfgDlg">
+  <form id="tfgForm" method="dialog">
+    <h2>Datos del TFG</h2>
+    <div class="fgrid">
+      <label class="field full"><span>Título</span><input type="text" id="tTitle"></label>
+      <label class="field full"><span>Tutor/a</span><input type="text" id="tTutor"></label>
+      <label class="field"><span>Depósito</span><input type="date" id="tDeposit"></label>
+      <label class="field"><span>Defensa</span><input type="date" id="tDefense"></label>
+    </div>
+    <div class="dlg-actions"><div class="right">
+      <button class="btn" type="button" id="tCancel">Cancelar</button>
+      <button class="btn primary" type="submit">Guardar</button>
+    </div></div>
+  </form>
+</dialog>
+
+<script>
+(function () {
+  "use strict";
+  const KEY = "agenda-plazos-v1";
+  const DAY = 86400000;
+  const AREAS = { uni: "Uni", work: "Trabajo", tfg: "TFG", personal: "Personal" };
+  const KINDS = {
+    uni: ["Examen", "Entrega de práctica", "Presentación", "Trabajo en grupo", "Estudio"],
+    work: ["Entrega", "Reunión", "Informe", "Revisión"],
+    tfg: ["Hito", "Reunión con tutor/a", "Depósito", "Defensa"]
+  };
+  const DOW = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+  const MON = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const uid = () => Math.random().toString(36).slice(2, 10);
+  const pad = (n) => String(n).padStart(2, "0");
+  const iso = (d) => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+  const parse = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+  const today = () => iso(new Date());
+  const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); return iso(d); };
+  const diff = (s) => Math.round((parse(s) - parse(today())) / DAY);
+  const fmt = (s) => { const d = parse(s); return DOW[d.getDay()] + " " + d.getDate() + " " + MON[d.getMonth()]; };
+
+  function countdown(d) {
+    if (d < 0) return "hace " + (-d) + " d";
+    if (d === 0) return "Hoy";
+    if (d === 1) return "Mañana";
+    if (d < 14) return "en " + d + " d";
+    const w = Math.round(d / 7);
+    return "en " + w + " sem";
+  }
+  function urgency(item) {
+    if (item.done) return "done";
+    const d = diff(item.date);
+    if (d < 0) return "late";
+    if (d <= 2) return "hot";
+    if (d <= 7) return "soon";
+    return "later";
+  }
+
+  // ---------- datos de ejemplo (fechas relativas a hoy) ----------
+  function sampleState() {
+    const t = today(), A = (n) => addDays(t, n);
+    return {
+      sample: true,
+      deadlines: [
+        { id: uid(), title: "Práctica 3 · Consultas avanzadas", area: "uni", kind: "Entrega de práctica", subject: "Bases de Datos II", date: A(2), time: "23:59", notes: "Subir al Campus Virtual en .zip", done: false },
+        { id: uid(), title: "Examen parcial", area: "uni", kind: "Examen", subject: "Estadística", date: A(9), time: "10:00", notes: "Temas 1–4. Aula 2.03", done: false },
+        { id: uid(), title: "Exposición del proyecto en grupo", area: "uni", kind: "Presentación", subject: "Gestión de Proyectos", date: A(13), time: "", notes: "15 min + preguntas", done: false },
+        { id: uid(), title: "Memoria de prácticas externas", area: "uni", kind: "Entrega de práctica", subject: "Prácticas externas", date: A(24), time: "", notes: "", done: false },
+        { id: uid(), title: "Ejercicios tema 2", area: "uni", kind: "Entrega de práctica", subject: "Estadística", date: A(-3), time: "", notes: "", done: true },
+        { id: uid(), title: "Informe mensual de resultados", area: "work", kind: "Informe", subject: "", date: A(4), time: "", notes: "", done: false },
+        { id: uid(), title: "Reunión de seguimiento", area: "work", kind: "Reunión", subject: "", date: A(1), time: "16:30", notes: "", done: false },
+        { id: uid(), title: "Revisión del cuadro de turnos", area: "work", kind: "Revisión", subject: "", date: A(11), time: "", notes: "", done: false },
+        { id: uid(), title: "Tutoría: revisar índice y estado del arte", area: "tfg", kind: "Reunión con tutor/a", subject: "TFG", date: A(6), time: "12:00", notes: "Llevar bibliografía", done: false }
+      ],
+      tasks: [
+        { id: uid(), title: "Terminar consultas 5–8 de la práctica 3", area: "uni", date: t, done: false },
+        { id: uid(), title: "Leer 2 artículos para el estado del arte", area: "tfg", date: t, done: false },
+        { id: uid(), title: "Responder correos pendientes", area: "work", date: t, done: true },
+        { id: uid(), title: "Repasar apuntes del tema 3", area: "uni", date: A(-1), done: false }
+      ],
+      tfg: {
+        title: "Título provisional de tu TFG",
+        tutor: "Tutor/a: pendiente de añadir",
+        deposit: A(160), defense: A(185),
+        milestones: [
+          { id: uid(), name: "Propuesta aprobada", date: A(-40), done: true },
+          { id: uid(), name: "Índice y planificación", date: A(-10), done: true },
+          { id: uid(), name: "Estado del arte", date: A(20), done: false },
+          { id: uid(), name: "Metodología", date: A(50), done: false },
+          { id: uid(), name: "Desarrollo / resultados", date: A(100), done: false },
+          { id: uid(), name: "Redacción completa (borrador)", date: A(130), done: false },
+          { id: uid(), name: "Revisión con tutor/a", date: A(150), done: false },
+          { id: uid(), name: "Presentación de la defensa", date: A(178), done: false }
+        ]
+      },
+      focus: { date: t, count: 2 }
+    };
+  }
+  function emptyState() {
+    return { sample: false, deadlines: [], tasks: [], tfg: { title: "Mi TFG", tutor: "", deposit: "", defense: "", milestones: [] }, focus: { date: today(), count: 0 } };
+  }
+
+  let state;
+  try { state = JSON.parse(localStorage.getItem(KEY)); } catch (e) { state = null; }
+  if (!state || !Array.isArray(state.deadlines)) state = sampleState();
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+
+  // ---------- render ----------
+  function render() {
+    renderHeader(); renderToday(); renderUpcoming(); renderStrip(); renderAreas(); renderTFG(); renderFocus();
+    $("sampleBanner").hidden = !state.sample;
+  }
+
+  function renderHeader() {
+    const d = new Date();
+    const long = d.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    const open = state.deadlines.filter((x) => !x.done);
+    const next = open.filter((x) => diff(x.date) >= 0).sort((a, b) => a.date.localeCompare(b.date))[0];
+    $("todayLine").innerHTML = "<b>" + esc(long.charAt(0).toUpperCase() + long.slice(1)) + "</b>" +
+      (next ? " · Lo siguiente: " + esc(next.title) + " (" + countdown(diff(next.date)).toLowerCase() + ")" : "");
+    const late = open.filter((x) => diff(x.date) < 0).length;
+    const week = open.filter((x) => { const n = diff(x.date); return n >= 0 && n <= 7; }).length;
+    const ms = state.tfg.milestones; const pct = ms.length ? Math.round(ms.filter((m) => m.done).length / ms.length * 100) : 0;
+    $("stats").innerHTML =
+      stat("late", late, late === 1 ? "vencido sin entregar" : "vencidos sin entregar") +
+      stat("hot", week, "en los próximos 7 días") +
+      stat("", open.length, "plazos abiertos") +
+      stat("tfg", pct + "%", "del TFG");
+  }
+  const stat = (cls, n, txt) => '<div class="stat ' + cls + '"><span class="n">' + n + "</span><span>" + txt + "</span></div>";
+
+  function taskRow(t, extra) {
+    return '<li class="task' + (t.done ? " done" : "") + '" data-task="' + t.id + '">' +
+      '<input type="checkbox" ' + (t.done ? "checked" : "") + ' aria-label="Completar">' +
+      '<span class="t">' + esc(t.title) + (extra ? '<br><span class="sub">' + extra + "</span>" : "") + "</span>" +
+      '<span class="tag a-' + t.area + '">' + AREAS[t.area] + "</span>" +
+      '<button class="x" type="button" data-del-task="' + t.id + '" aria-label="Eliminar tarea">✕</button></li>';
+  }
+
+  function renderToday() {
+    const t = today();
+    const carry = state.tasks.filter((x) => !x.done && x.date < t);
+    const todays = state.tasks.filter((x) => x.date === t).sort((a, b) => a.done - b.done);
+    let html = carry.map((x) => taskRow(x, "Pendiente desde " + fmt(x.date))).join("") + todays.map((x) => taskRow(x)).join("");
+    $("todayList").innerHTML = html || '<li class="empty">Nada planificado. Añade una tarea o usa las sugerencias.</li>';
+    const done = todays.filter((x) => x.done).length;
+    $("todayCount").textContent = (todays.length + carry.length) ? done + " de " + (todays.length + carry.length) + " hechas" : "";
+
+    const titles = new Set(state.tasks.filter((x) => x.date === t).map((x) => x.title));
+    const sug = state.deadlines.filter((x) => !x.done && diff(x.date) >= 0 && diff(x.date) <= 7)
+      .sort((a, b) => a.date.localeCompare(b.date)).slice(0, 4)
+      .map((x) => ({ title: (x.kind === "Examen" ? "Estudiar: " : /Reuni/.test(x.kind) ? "Preparar: " : "Avanzar: ") + x.title, area: x.area, d: diff(x.date) }))
+      .filter((s) => !titles.has(s.title));
+    $("suggestBox").hidden = !sug.length;
+    $("suggestChips").innerHTML = sug.map((s) =>
+      '<button type="button" class="chip-btn" data-sug="' + esc(s.title) + '" data-area="' + s.area + '"><span class="a-' + s.area + '">+</span> ' + esc(s.title) + ' <span class="sub">(' + countdown(s.d).toLowerCase() + ")</span></button>").join("");
+  }
+
+  function dlRow(x) {
+    const u = urgency(x), d = diff(x.date);
+    return '<li><button type="button" class="dl u-' + u + " a-" + x.area + '" data-edit="' + x.id + '">' +
+      '<span class="bar"></span><span class="body"><span class="title" style="color:var(--ink)">' + esc(x.title) + "</span>" +
+      '<span class="meta"><span class="tag a-' + x.area + '">' + AREAS[x.area] + "</span>" + esc(x.kind) +
+      (x.subject ? " · " + esc(x.subject) : "") + " · " + fmt(x.date) + (x.time ? " " + esc(x.time) : "") + "</span></span>" +
+      '<span class="cd">' + (x.done ? "Hecho ✓" : countdown(d)) + "</span></button></li>";
+  }
+  const byDate = (a, b) => a.date.localeCompare(b.date) || (a.time || "").localeCompare(b.time || "");
+
+  function renderUpcoming() {
+    const showDone = $("showDone").checked;
+    const list = state.deadlines.filter((x) => showDone || !x.done).sort(byDate).filter((x) => showDone || diff(x.date) <= 30).slice(0, 10);
+    $("upcoming").innerHTML = list.map(dlRow).join("") || '<li class="empty">Sin plazos en los próximos 30 días. Añade uno con «+ Nuevo plazo».</li>';
+  }
+
+  function renderStrip() {
+    const t = today(); let html = "";
+    for (let i = 0; i < 14; i++) {
+      const s = addDays(t, i), d = parse(s), we = d.getDay() === 0 || d.getDay() === 6;
+      const evs = state.deadlines.filter((x) => x.date === s).sort(byDate);
+      const ms = state.tfg.milestones.filter((m) => m.date === s && !m.done);
+      html += '<div class="day' + (we ? " we" : "") + (i === 0 ? " is-today" : "") + '">' +
+        '<div class="dh"><span>' + (i === 0 ? "hoy" : DOW[d.getDay()]) + '</span><span class="dn">' + d.getDate() + "</span></div>" +
+        evs.map((x) => '<div class="ev a-' + x.area + '" data-edit="' + x.id + '" title="' + esc(x.title) + '"' + (x.done ? ' style="opacity:.5"' : "") + "><span>" + esc(x.title) + "</span></div>").join("") +
+        ms.map((m) => '<div class="ev a-tfg"><span>◆ ' + esc(m.name) + "</span></div>").join("") + "</div>";
+    }
+    $("strip").innerHTML = html;
+  }
+
+  let uniFilter = "Todos";
+  function renderAreas() {
+    const kinds = ["Todos"].concat(KINDS.uni);
+    $("uniFilters").innerHTML = kinds.map((k) => '<button type="button" class="filter" data-filter="' + k + '" aria-pressed="' + (k === uniFilter) + '">' + k + "</button>").join("");
+    const col = (area, filter) => {
+      const open = state.deadlines.filter((x) => x.area === area && (!filter || filter === "Todos" || x.kind === filter));
+      const pending = open.filter((x) => !x.done).sort(byDate), done = open.filter((x) => x.done).sort(byDate).reverse().slice(0, 3);
+      return pending.map(dlRow).join("") + done.map(dlRow).join("");
+    };
+    $("uniList").innerHTML = col("uni", uniFilter) || '<li class="empty">Sin plazos aquí. Añade exámenes, prácticas y presentaciones.</li>';
+    $("workList").innerHTML = col("work") || '<li class="empty">Sin plazos de trabajo.</li>';
+  }
+
+  function renderTFG() {
+    const g = state.tfg, ms = g.milestones.slice().sort(byDate);
+    const done = ms.filter((m) => m.done).length, pct = ms.length ? Math.round(done / ms.length * 100) : 0;
+    $("tfgTitle").textContent = g.title || "Mi TFG";
+    $("tfgTutor").textContent = g.tutor || "";
+    $("tfgBar").style.width = pct + "%";
+    $("tfgPct").textContent = done + " de " + ms.length + " hitos · " + pct + "%";
+    const parts = [];
+    if (g.deposit) parts.push("Depósito " + countdown(diff(g.deposit)).toLowerCase());
+    if (g.defense) parts.push("Defensa " + countdown(diff(g.defense)).toLowerCase() + " (" + fmt(g.defense) + ")");
+    $("tfgDefense").textContent = parts.join(" · ");
+    const nextId = (ms.find((m) => !m.done) || {}).id;
+    const tfgDl = state.deadlines.filter((x) => x.area === "tfg" && !x.done).sort(byDate);
+    $("msList").innerHTML = ms.map((m) => {
+      const d = diff(m.date), late = !m.done && d < 0;
+      return '<li class="ms' + (m.done ? " done" : "") + (m.id === nextId ? " next" : "") + '" data-ms="' + m.id + '">' +
+        '<input type="checkbox" ' + (m.done ? "checked" : "") + ' aria-label="Hito completado"><span class="n">' + esc(m.name) +
+        (m.id === nextId ? ' <span class="sub">· siguiente</span>' : "") + "</span>" +
+        '<span class="d' + (late ? " late" : "") + '">' + fmt(m.date) + (m.done ? "" : " · " + countdown(d)) +
+        ' <button class="x" type="button" data-del-ms="' + m.id + '" aria-label="Eliminar hito">✕</button></span></li>';
+    }).join("") + (tfgDl.length ? '<li class="label" style="padding-top:6px">Citas y entregas del TFG</li>' + tfgDl.map(dlRow).join("") : "")
+      || '<li class="empty">Añade los hitos de tu TFG: propuesta, estado del arte, desarrollo, redacción, defensa…</li>';
+  }
+
+  // ---------- foco (pomodoro) ----------
+  const LEN = { focus: 25 * 60, break: 5 * 60 };
+  let mode = "focus", left = LEN.focus, tick = null;
+  function renderFocus() {
+    if (state.focus.date !== today()) { state.focus = { date: today(), count: 0 }; save(); }
+    $("timer").textContent = pad(Math.floor(left / 60)) + ":" + pad(left % 60);
+    $("timerMode").textContent = mode === "focus" ? "Concentración · 25 min" : "Descanso · 5 min";
+    $("tSwitch").textContent = mode === "focus" ? "Descanso" : "Concentración";
+    $("tStart").textContent = tick ? "Pausar" : (left < LEN[mode] ? "Seguir" : "Empezar");
+    $("pomos").innerHTML = "<i></i>".repeat(Math.min(state.focus.count, 16));
+    $("pomoCount").textContent = state.focus.count + (state.focus.count === 1 ? " bloque hoy" : " bloques hoy");
+  }
+  function stop() { clearInterval(tick); tick = null; }
+  $("tStart").onclick = () => {
+    if (tick) { stop(); renderFocus(); return; }
+    const end = Date.now() + left * 1000;
+    tick = setInterval(() => {
+      left = Math.max(0, Math.round((end - Date.now()) / 1000));
+      if (left === 0) {
+        stop();
+        if (mode === "focus") { state.focus.count++; save(); mode = "break"; } else mode = "focus";
+        left = LEN[mode]; renderHeader();
+        try { document.title = mode === "break" ? "¡Bloque terminado! · Mi Agenda" : "Mi Agenda de Plazos"; } catch (e) {}
+      }
+      renderFocus();
+    }, 250);
+    renderFocus();
+  };
+  $("tReset").onclick = () => { stop(); left = LEN[mode]; renderFocus(); };
+  $("tSwitch").onclick = () => { stop(); mode = mode === "focus" ? "break" : "focus"; left = LEN[mode]; renderFocus(); };
+
+  // ---------- diálogo de plazos ----------
+  let editing = null, delArmed = false;
+  function fillKinds(area, sel) {
+    $("fKind").innerHTML = KINDS[area].map((k) => "<option" + (k === sel ? " selected" : "") + ">" + k + "</option>").join("");
+  }
+  function openDl(id, area) {
+    const x = id ? state.deadlines.find((d) => d.id === id) : null;
+    editing = x ? x.id : null; delArmed = false;
+    $("fDelete").textContent = "Eliminar"; $("fDelete").hidden = !x;
+    $("dlgTitle").textContent = x ? "Editar plazo" : "Nuevo plazo";
+    const a = x ? x.area : (area || "uni");
+    $("fArea").value = a; fillKinds(a, x && x.kind);
+    $("fTitle").value = x ? x.title : ""; $("fDate").value = x ? x.date : addDays(today(), 7);
+    $("fTime").value = x ? x.time || "" : ""; $("fSubject").value = x ? x.subject || "" : "";
+    $("fNotes").value = x ? x.notes || "" : ""; $("fDone").checked = x ? !!x.done : false;
+    $("dlg").showModal(); $("fTitle").focus();
+  }
+  $("fArea").onchange = () => fillKinds($("fArea").value);
+  $("fCancel").onclick = () => $("dlg").close();
+  $("dlForm").onsubmit = (e) => {
+    e.preventDefault();
+    const data = { title: $("fTitle").value.trim(), area: $("fArea").value, kind: $("fKind").value, date: $("fDate").value,
+      time: $("fTime").value.trim(), subject: $("fSubject").value.trim(), notes: $("fNotes").value.trim(), done: $("fDone").checked };
+    if (!data.title || !data.date) return;
+    if (editing) Object.assign(state.deadlines.find((d) => d.id === editing), data);
+    else state.deadlines.push(Object.assign({ id: uid() }, data));
+    save(); $("dlg").close(); render();
+  };
+  $("fDelete").onclick = () => {
+    if (!delArmed) { delArmed = true; $("fDelete").textContent = "Pulsa otra vez para eliminar"; return; }
+    state.deadlines = state.deadlines.filter((d) => d.id !== editing); save(); $("dlg").close(); render();
+  };
+
+  // ---------- TFG ----------
+  $("tfgEditBtn").onclick = () => {
+    const g = state.tfg; $("tTitle").value = g.title || ""; $("tTutor").value = g.tutor || "";
+    $("tDeposit").value = g.deposit || ""; $("tDefense").value = g.defense || ""; $("tfgDlg").showModal();
+  };
+  $("tCancel").onclick = () => $("tfgDlg").close();
+  $("tfgForm").onsubmit = (e) => {
+    e.preventDefault();
+    Object.assign(state.tfg, { title: $("tTitle").value.trim(), tutor: $("tTutor").value.trim(), deposit: $("tDeposit").value, defense: $("tDefense").value });
+    save(); $("tfgDlg").close(); render();
+  };
+  $("msForm").onsubmit = (e) => {
+    e.preventDefault();
+    const name = $("msName").value.trim(); if (!name) return;
+    state.tfg.milestones.push({ id: uid(), name, date: $("msDate").value || addDays(today(), 14), done: false });
+    $("msName").value = ""; $("msDate").value = ""; save(); render();
+  };
+
+  // ---------- tareas ----------
+  $("quickTask").onsubmit = (e) => {
+    e.preventDefault();
+    const title = $("quickTitle").value.trim(); if (!title) return;
+    state.tasks.push({ id: uid(), title, area: $("quickArea").value, date: today(), done: false });
+    $("quickTitle").value = ""; save(); render();
+  };
+
+  // ---------- delegación de eventos ----------
+  document.addEventListener("click", (e) => {
+    const el = e.target.closest("[data-edit],[data-add],[data-del-task],[data-del-ms],[data-sug],[data-filter]");
+    if (!el) return;
+    if (el.dataset.edit) openDl(el.dataset.edit);
+    else if (el.dataset.add) openDl(null, el.dataset.add);
+    else if (el.dataset.delTask) { state.tasks = state.tasks.filter((t) => t.id !== el.dataset.delTask); save(); render(); }
+    else if (el.dataset.delMs) { state.tfg.milestones = state.tfg.milestones.filter((m) => m.id !== el.dataset.delMs); save(); render(); }
+    else if (el.dataset.sug) { state.tasks.push({ id: uid(), title: el.dataset.sug, area: el.dataset.area, date: today(), done: false }); save(); render(); }
+    else if (el.dataset.filter) { uniFilter = el.dataset.filter; renderAreas(); }
+  });
+  document.addEventListener("change", (e) => {
+    const li = e.target.closest("[data-task],[data-ms]");
+    if (!li || e.target.type !== "checkbox") return;
+    if (li.dataset.task) {
+      const t = state.tasks.find((x) => x.id === li.dataset.task); t.done = e.target.checked;
+      if (t.done && t.date < today()) t.date = today();
+    } else {
+      const m = state.tfg.milestones.find((x) => x.id === li.dataset.ms); m.done = e.target.checked;
+    }
+    save(); render();
+  });
+  $("showDone").onchange = renderUpcoming;
+  $("addDeadlineBtn").onclick = () => openDl(null);
+  $("clearSample").onclick = () => { state = emptyState(); save(); render(); };
+
+  // ---------- copia de seguridad ----------
+  $("exportBtn").onclick = () => {
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "agenda-plazos-" + today() + ".json";
+    document.body.appendChild(a); a.click(); a.remove();
+  };
+  $("importFile").onchange = (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      try { const s = JSON.parse(r.result); if (!Array.isArray(s.deadlines)) throw 0; s.sample = false; state = s; save(); render(); }
+      catch (err) { $("todayLine").textContent = "No se pudo importar: el archivo no es una copia válida de la agenda."; }
+    };
+    r.readAsText(f); e.target.value = "";
+  };
+
+  // refresca a medianoche y al volver a la pestaña
+  let lastDay = today();
+  setInterval(() => { if (today() !== lastDay) { lastDay = today(); render(); } }, 60000);
+
+  render();
+})();
+</script>
+</body>
+</html>
