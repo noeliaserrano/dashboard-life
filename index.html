@@ -29,7 +29,7 @@ body {
   background-image: radial-gradient(rgba(255,255,255,.025) 1px, transparent 1px); background-size: 6px 6px;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 20px calc(40px + env(safe-area-inset-bottom, 0px));
+  padding-block: 20px calc(110px + env(safe-area-inset-bottom, 0px));
   -webkit-tap-highlight-color: transparent;
 }
 .wrap { max-width: 760px; margin: 0 auto; display: grid; gap: 24px; }
@@ -199,7 +199,19 @@ button { cursor: pointer; }
 
 .sample { background: var(--wall-2); border: 1px dashed var(--accent); border-radius: 14px; padding: 12px 14px; display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; font-size: 15px; }
 .foot { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; padding-top: 10px; }
-.toast { position: fixed; z-index: 50; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--wall); padding: 10px 18px; border-radius: 999px; font-weight: 700; font-size: 15px; width: max-content; max-width: calc(100vw - 32px); text-align: center; box-shadow: 0 6px 20px rgba(0,0,0,.4); display: flex; gap: 12px; align-items: center; }
+.view { display: grid; gap: 22px; }
+nav.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: color-mix(in srgb, var(--wall) 94%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-top: 1px solid var(--line);
+  padding: 6px max(10px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-left, 0px)); }
+nav.tabs .in { max-width: 760px; margin: 0 auto; display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; }
+nav.tabs a { position: relative; text-decoration: none; color: var(--faint); font-weight: 800; font-size: 13px; text-align: center; padding: 10px 2px; border-radius: 12px; }
+nav.tabs a[aria-current="page"] { color: var(--ink); background: var(--wall-2); }
+.badge { display: inline-block; min-width: 18px; margin-left: 4px; padding: 0 5px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-size: 11px; line-height: 18px; }
+.badge.warn { background: var(--warn); }
+.badge:empty { display: none; }
+.fab { position: fixed; z-index: 21; right: max(16px, calc(env(safe-area-inset-right, 0px) + 16px)); bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 999px; padding: 12px 18px; font-weight: 800; font-size: 15px; box-shadow: 0 8px 24px rgba(0,0,0,.45); }
+@media (min-width: 800px) { .fab { right: calc(50% - 370px); } }
+.toast { position: fixed; z-index: 50; left: 50%; bottom: calc(80px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--wall); padding: 10px 18px; border-radius: 999px; font-weight: 700; font-size: 15px; width: max-content; max-width: calc(100vw - 32px); text-align: center; box-shadow: 0 6px 20px rgba(0,0,0,.4); display: flex; gap: 12px; align-items: center; }
 .toast button { background: none; border: 0; color: inherit; font-weight: 800; text-decoration: underline; padding: 0; }
 
 @media (prefers-reduced-motion: reduce) { .note { transition: none; } }
@@ -208,21 +220,16 @@ button { cursor: pointer; }
 <body>
 <div class="wrap">
 
-  <header class="head">
-    <div class="label" id="today"></div>
-    <h1>Tu pared</h1>
-    <p class="summary" id="summary"></p>
-    <div><button class="week-btn" type="button" id="weekBtn"></button></div>
-    <div class="picker" id="picker" hidden></div>
-  </header>
-
+  <section class="view" data-view="hoy">
+    <header class="head">
+      <div class="label" id="today"></div>
+      <h1 id="hello">Hoy</h1>
+    </header>
   <div class="sample" id="sample" hidden>
     <span>Estos pósits son de ejemplo, para que veas cómo queda.</span>
     <button class="btn sm" type="button" id="clearSample">Quitar ejemplos</button>
   </div>
-
   <section class="todaybox" id="todayBox" hidden></section>
-
   <form class="compose" id="compose" autocomplete="off">
     <div class="compose-row">
       <input type="text" id="text" placeholder="Escribe un pósit…" aria-label="Texto del pósit" enterkeyhint="done">
@@ -237,9 +244,39 @@ button { cursor: pointer; }
     </div>
     <p class="hint" id="hint">Escribe una tarea, o un examen o entrega con su fecha y te hago un plan. También puedes pegar un aviso del campus virtual.</p>
   </form>
+  <section class="soon" id="soon" hidden></section>
+  </section>
 
+  <section class="view" data-view="tareas" hidden>
+  <header class="head">
+    <div class="label">Tus tareas</div>
+    <h1>Tu pared</h1>
+    <p class="summary" id="summary"></p>
+    <div><button class="week-btn" type="button" id="weekBtn"></button></div>
+    <div class="picker" id="picker" hidden></div>
+  </header>
+  <div class="chips" id="filter" hidden></div>
+  <section id="wall" style="display:grid;gap:28px"></section>
+  <section class="donebox" id="donebox"></section>
+  </section>
+
+  <section class="view" data-view="estudio" hidden>
+    <header class="head">
+      <div class="label">Estudio</div>
+      <h1>Exámenes y entregas</h1>
+      <p class="summary">Cada uno con su plan por pasos, colocado en tus huecos libres.</p>
+    </header>
+    <div class="empty" id="plansEmpty" hidden><b>Nada pendiente</b><span>Escribe en Hoy un examen o una entrega con su fecha, o pega el aviso del campus, y te hago el plan.</span></div>
+  <section class="plans" id="plans" hidden></section>
+  </section>
+
+  <section class="view" data-view="agenda" hidden>
+    <header class="head">
+      <div class="label">Agenda</div>
+      <h1>Citas y días libres</h1>
+    </header>
   <section class="agenda" id="agenda">
-    <div class="agenda-head"><div class="label">Agenda</div><button class="btn sm" type="button" id="evToggle">+ Cita</button></div>
+    <div class="agenda-head"><span class="small muted">Próximas dos semanas</span><button class="btn sm" type="button" id="evToggle">+ Cita</button></div>
     <form class="offform evform" id="evForm" hidden>
       <label class="lbl full">Qué<input type="text" id="evTitle" placeholder="Dentista, clase de inglés, cena…" required></label>
       <label class="lbl">Día<input type="date" id="evDate" required></label>
@@ -252,16 +289,32 @@ button { cursor: pointer; }
     </form>
     <ul class="evlist" id="evList"></ul>
   </section>
+  <details class="offbox" id="offbox" open>
+    <summary id="offSummary">Vacaciones y festivos</summary>
+    <div class="offin">
+      <p class="small muted">Marca los días en que no puedes estudiar o en que tienes más tiempo. Reparto los pasos de tus exámenes y entregas teniéndolo en cuenta.</p>
+      <ul class="offlist" id="offList"></ul>
+      <form class="offform" id="offForm">
+        <label class="lbl">Desde<input type="date" id="offFrom" required></label>
+        <label class="lbl">Hasta (opcional)<input type="date" id="offTo"></label>
+        <label class="lbl full">Nombre (opcional)<input type="text" id="offName" placeholder="Puente de diciembre, Navidad…"></label>
+        <div class="full opts">
+          <button type="button" class="chip" data-offkind="rest" aria-pressed="true">Descanso: no me pongas nada</button>
+          <button type="button" class="chip" data-offkind="free" aria-pressed="false">Día libre: tengo más tiempo</button>
+          <button type="button" class="chip" data-offkind="short" aria-pressed="false">Jornada reducida (víspera)</button>
+        </div>
+        <button class="btn primary sm full" type="submit">Añadir</button>
+      </form>
+    </div>
+  </details>
+  </section>
 
-  <section class="plans" id="plans" hidden></section>
-
-  <section class="soon" id="soon" hidden></section>
-
-  <div class="chips" id="filter" hidden></div>
-
-  <section id="wall" style="display:grid;gap:28px"></section>
-
-  <details class="offbox" id="schedBox">
+  <section class="view" data-view="ajustes" hidden>
+    <header class="head">
+      <div class="label">Ajustes</div>
+      <h1>Tu horario</h1>
+    </header>
+  <details class="offbox" id="schedBox" open>
     <summary>Tu horario: trabajo, paseo y gimnasio</summary>
     <div class="offin">
       <p class="small muted">Con esto coloco el paseo y el gimnasio cada día y te digo el mejor hueco para estudiar. Los días sin trabajo cuentan como días con más tiempo para tus planes.</p>
@@ -277,7 +330,7 @@ button { cursor: pointer; }
       </div>
       <div class="sgroup">
         <h3>Jornada reducida</h3>
-        <p class="xs muted">Todas las semanas estos días. Para una víspera de festivo suelta, añádela abajo en Vacaciones y festivos.</p>
+        <p class="xs muted">Todas las semanas estos días. Para una víspera de festivo suelta, añádela en Agenda.</p>
         <div class="daypick" id="sShortDays"></div>
         <div class="offform"><label class="lbl">Salida en jornada reducida<input type="time" id="sShortEnd"></label></div>
       </div>
@@ -308,34 +361,30 @@ button { cursor: pointer; }
       </div>
     </div>
   </details>
-
-  <details class="offbox" id="offbox">
-    <summary id="offSummary">Vacaciones y festivos</summary>
-    <div class="offin">
-      <p class="small muted">Marca los días en que no puedes estudiar o en que tienes más tiempo. Reparto los pasos de tus exámenes y entregas teniéndolo en cuenta.</p>
-      <ul class="offlist" id="offList"></ul>
-      <form class="offform" id="offForm">
-        <label class="lbl">Desde<input type="date" id="offFrom" required></label>
-        <label class="lbl">Hasta (opcional)<input type="date" id="offTo"></label>
-        <label class="lbl full">Nombre (opcional)<input type="text" id="offName" placeholder="Puente de diciembre, Navidad…"></label>
-        <div class="full opts">
-          <button type="button" class="chip" data-offkind="rest" aria-pressed="true">Descanso: no me pongas nada</button>
-          <button type="button" class="chip" data-offkind="free" aria-pressed="false">Día libre: tengo más tiempo</button>
-          <button type="button" class="chip" data-offkind="short" aria-pressed="false">Jornada reducida (víspera)</button>
-        </div>
-        <button class="btn primary sm full" type="submit">Añadir</button>
-      </form>
-    </div>
-  </details>
-
-  <section class="donebox" id="donebox"></section>
-
-  <div class="foot">
+    <div class="offbox" style="display:grid;gap:10px">
+      <b>Tus datos</b>
+      <p class="small muted">Se guardan solo en este móvil. Guarda una copia de vez en cuando.</p>
+      <div class="foot" style="justify-content:flex-start;padding-top:0">
     <button class="btn sm" type="button" id="exportBtn">Guardar copia</button>
     <label class="btn sm" for="importFile">Recuperar copia</label>
     <input type="file" id="importFile" accept="application/json" hidden>
   </div>
+      <div><button class="btn sm" type="button" id="clearSample2">Borrar ejemplos</button></div>
+    </div>
+  </section>
 </div>
+
+<button class="fab" type="button" id="fab" hidden>+ Apuntar</button>
+
+<nav class="tabs" aria-label="Secciones">
+  <div class="in">
+    <a href="#hoy" data-tab="hoy">Hoy</a>
+    <a href="#tareas" data-tab="tareas">Tareas<span class="badge" id="bTareas"></span></a>
+    <a href="#estudio" data-tab="estudio">Estudio<span class="badge" id="bEstudio"></span></a>
+    <a href="#agenda" data-tab="agenda">Agenda</a>
+    <a href="#ajustes" data-tab="ajustes">Ajustes</a>
+  </div>
+</nav>
 
 <div class="toast" id="toast" hidden></div>
 
@@ -682,7 +731,7 @@ button { cursor: pointer; }
     $("picker").innerHTML = '<span class="small muted">Si en papel usas otro color esta semana, elígelo:</span>' +
       COLORS.map((c, i) => '<button type="button" data-pick="' + i + '" style="--c:' + c.c + '" aria-label="' + c.name + '" aria-pressed="' + (i === colorIdx(w0)) + '"></button>').join("");
     $("sample").hidden = !state.sample;
-    renderOff(); renderAgenda(); renderToday(); renderPlans(); renderFilter(); renderSoon(); renderWall(); renderDone();
+    renderBadges(); renderOff(); renderAgenda(); renderToday(); renderPlans(); renderFilter(); renderSoon(); renderWall(); renderDone();
   }
 
   function renderFilter() {
@@ -773,13 +822,23 @@ button { cursor: pointer; }
     if (d) { state.daysOff = state.daysOff.filter((o) => o.id !== d.dataset.offdel); const n = replanAll(); save(); render(); toast(n ? "Quitado. Planes repartidos de nuevo." : "Quitado."); }
   });
 
+  function renderBadges() {
+    const pend = state.notes.filter((n) => !n.done).length;
+    $("bTareas").textContent = pend || "";
+    const open = state.plans.filter((p) => !p.done);
+    const bad = open.filter((p) => planStatus(p)[0] === "late").length;
+    $("bEstudio").textContent = bad || (open.length || "");
+    $("bEstudio").classList.toggle("warn", !!bad);
+    const h = new Date().getHours();
+    $("hello").textContent = h < 13 ? "Buenos días" : h < 20 ? "Buenas tardes" : "Buenas noches";
+  }
   function renderAgenda() {
     const t = today(), out = [];
     for (let i = 0; i < 14; i++) { const d = addDays(t, i), evs = eventsOn(d); if (evs.length) out.push({ d, evs }); }
     $("evList").innerHTML = out.map(({ d, evs }) => '<li class="evday">' + (d === t ? "Hoy" : diff(d) === 1 ? "Mañana" : cap1(fmt(d))) + "</li>" +
       evs.map((ev) => '<li class="ev"><span class="hr">' + hm(toMin(ev.start)) + "–" + hm(toMin(ev.end)) + '</span><span class="grow">' + esc(ev.title) + (ev.weekly ? ' <span class="rep">· cada semana</span>' : "") +
         '</span><button class="x" type="button" data-evdel="' + ev.id + '" aria-label="Borrar cita">' + (evDelArmed === ev.id ? "¿Borrar" + (ev.weekly ? " todas" : "") + "?" : "✕") + "</button></li>").join("")).join("") ||
-      '<li class="small muted">No tienes citas en las próximas dos semanas. Pulsa «+ Cita» o escribe arriba algo como «dentista jueves a las 18».</li>';
+      '<li class="small muted">No tienes citas en las próximas dos semanas. Pulsa «+ Cita» o escribe en Hoy algo como «dentista jueves a las 18».</li>';
   }
   let evDelArmed = null;
   $("evToggle").onclick = () => { const f = $("evForm"); f.hidden = !f.hidden; if (!f.hidden) { $("evDate").value = $("evDate").value || today(); $("evTitle").focus(); } };
@@ -837,7 +896,7 @@ button { cursor: pointer; }
         '<div><div class="what">' + (st.day === t && st.start != null ? '<span class="tm">' + hm(st.start) + "</span> " : "") + esc(st.name) + '</div><div class="why">' + esc(p.title) + " · " + fdur(durOf(st)) + " · " + (k === 0 ? "es hoy" : k === 1 ? "es mañana" : "faltan " + k + " días") + (st.day < t ? " · <b>era del " + fmt(st.day) + "</b>" : "") + "</div></div></div>";
     }).join("");
     const short = open.filter((p) => missing(p) > 0);
-    if (short.length) html += '<p class="calm">Con tu tiempo libre no llego a todo en <b>' + short.map((p) => esc(p.title)).join("</b>, <b>") + "</b>: faltan unas " + fdur(short.reduce((a, p) => a + missing(p), 0)) + ". Puedes subir el máximo de estudio en Tu horario, quitar algún paso o usar un día libre.</p>";
+    if (short.length) html += '<p class="calm">Con tu tiempo libre no llego a todo en <b>' + short.map((p) => esc(p.title)).join("</b>, <b>") + "</b>: faltan unas " + fdur(short.reduce((a, p) => a + missing(p), 0)) + ". Puedes subir el máximo de estudio en Ajustes, quitar algún paso o marcar un día libre en Agenda.</p>";
     if (late.length) html += '<p class="calm">' + (late.length === 1 ? "Un paso se quedó" : late.length + " pasos se quedaron") + " sin hacer otros días. No pasa nada: los reparto de nuevo en los días que quedan.</p>" +
       '<div class="row-btns"><button class="btn primary sm" type="button" data-replanall="today">Replanificar desde hoy</button></div>';
     else if (todayPending.length) html += '<div class="row-btns"><button class="btn sm" type="button" data-replanall="tomorrow">Hoy no he podido: muévelo a otros días</button></div>';
@@ -846,9 +905,9 @@ button { cursor: pointer; }
 
   function renderPlans() {
     const open = state.plans.filter((p) => !p.done).sort((a, b) => a.due.localeCompare(b.due));
-    $("plans").hidden = !open.length;
+    $("plans").hidden = !open.length; $("plansEmpty").hidden = !!open.length;
     if (!open.length) return;
-    $("plans").innerHTML = '<div class="label">Exámenes y entregas</div>' + open.map((p) => {
+    $("plans").innerHTML = open.map((p) => {
       const [cls, txt] = planStatus(p), miss = missing(p), dn = p.steps.filter((x) => x.done).length, k = diff(p.due);
       const next = p.steps.find((x) => !x.done);
       const isOpen = openPlan === p.id || editPlan === p.id;
@@ -865,7 +924,7 @@ button { cursor: pointer; }
           '<button class="btn sm" type="button" data-pedel="' + p.id + '" style="color:var(--warn);margin-left:auto">' + (delArmed === p.id ? "Pulsa otra vez para borrar" : "Borrar") + "</button></div></div>";
       } else if (isOpen) {
         body = '<div class="plan-body"><p class="method"><b>Método:</b> ' + METHOD[p.kind] + "</p>" +
-          (miss ? '<p class="calm">No me caben unas ' + fdur(miss) + " antes de la fecha. Sube el máximo de estudio en Tu horario o acorta algún paso.</p>" : "") +
+          (miss ? '<p class="calm">No me caben unas ' + fdur(miss) + " antes de la fecha. Sube el máximo de estudio en Ajustes o acorta algún paso.</p>" : "") +
           p.steps.map((st) => { const dd = st.day ? diff(st.day) : null;
             return '<div class="pstep' + (st.done ? " done" : "") + '"><button class="check sm" type="button" data-step="' + p.id + ":" + st.id + '" aria-pressed="' + st.done + '" aria-label="Hecho">' + (st.done ? "✓" : "") + '</button><span class="n">' + esc(st.name) + '</span><span class="d' + (!st.done && (dd < 0 || !st.day) ? " late" : dd === 0 ? " today" : "") + '">' + (st.done ? "hecho" : whenStep(st) + " · " + fdur(durOf(st))) + "</span></div>"; }).join("") +
           '<div class="row-btns"><button class="btn primary sm" type="button" data-replan="' + p.id + '">Replanificar desde hoy</button><button class="btn sm" type="button" data-peopen="' + p.id + '">Editar plan</button><button class="btn sm" type="button" data-pdone="' + p.id + '">Ya lo entregué</button></div></div>';
@@ -976,8 +1035,8 @@ button { cursor: pointer; }
       const p = makePlan(cleanTitle(text), dueV, composeArea || "uni"); state.plans.push(p); scheduleAll(today()); openPlan = p.id; save();
       $("text").value = ""; $("due").value = ""; composeArea = null; areaTouched = false; dueTouched = false; syncOpts();
       $("hint").textContent = DEFAULT_HINT; render();
-      toast("Te he hecho un plan de " + p.steps.length + " pasos hasta el " + fmt(dueV) + ". Revísalo abajo.");
-      const el = $("plan-" + p.id); if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
+      toastUndo("Plan de " + p.steps.length + " pasos hasta el " + fmt(dueV) + ". Lo tienes en Estudio.", () => {}, "Ver");
+      $("toastUndo2").onclick = () => { $("toast").hidden = true; go("estudio"); };
       return;
     }
     const tmv = guess(text).time;
@@ -1051,8 +1110,8 @@ button { cursor: pointer; }
   $("weekBtn").onclick = () => { pickerOpen = !pickerOpen; render(); };
   $("clearSample").onclick = () => { state = { v: 3, sample: false, weekColor: {}, notes: [], plans: [], plansV: 1, daysOff: [], sched: state.sched, routines: {}, events: [] }; save(); render(); toast("Listo. Tu pared está vacía."); $("text").focus(); };
 
-  function toastUndo(msg, fn) {
-    const t = $("toast"); t.innerHTML = "<span>" + esc(msg) + '</span><button type="button" id="toastUndo2">Deshacer</button>';
+  function toastUndo(msg, fn, label) {
+    const t = $("toast"); t.innerHTML = "<span>" + esc(msg) + '</span><button type="button" id="toastUndo2">' + (label || "Deshacer") + "</button>";
     t.hidden = false; clearTimeout(tT); tT = setTimeout(() => { t.hidden = true; }, 4500);
     $("toastUndo2").onclick = () => { fn(); t.hidden = true; };
   }
@@ -1125,6 +1184,21 @@ button { cursor: pointer; }
   }
   migrateSched();
   fillSched();
+  // ---------- páginas ----------
+  const VIEWS = ["hoy", "tareas", "estudio", "agenda", "ajustes"];
+  function route() {
+    const v = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "hoy";
+    document.querySelectorAll("[data-view]").forEach((x) => { x.hidden = x.dataset.view !== v; });
+    document.querySelectorAll("[data-tab]").forEach((a) => a.setAttribute("aria-current", a.dataset.tab === v ? "page" : "false"));
+    $("fab").hidden = v === "hoy" || v === "ajustes";
+    window.scrollTo(0, 0);
+  }
+  window.addEventListener("hashchange", route);
+  const go = (v) => { if (location.hash.slice(1) === v) route(); else location.hash = v; };
+  $("fab").onclick = () => { go("hoy"); setTimeout(() => $("text").focus(), 50); };
+  $("clearSample2").onclick = () => $("clearSample").click();
+  route();
+
   migratePlans();
   if (state.schedV !== 2) { scheduleAll(today()); state.schedV = 2; save(); }
   render();
