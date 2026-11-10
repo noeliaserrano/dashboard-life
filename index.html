@@ -173,6 +173,18 @@ button { cursor: pointer; }
 .dslot.done { opacity: .6; } .dslot.done .w { text-decoration: line-through; }
 .dslot.study { border-color: color-mix(in srgb, #a8dc96 45%, var(--line)); }
 .dslot .check { width: 26px; height: 26px; font-size: 13px; }
+.agenda { display: grid; gap: 10px; }
+.agenda-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.evform { background: var(--wall-2); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+.evform .chk { display: flex; gap: 8px; align-items: center; font-size: 14px; font-weight: 700; color: var(--muted); }
+.evform .chk input { width: 18px; height: 18px; accent-color: var(--accent); }
+.evlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.evday { font-size: 12px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; padding-top: 6px; }
+.ev { display: flex; gap: 10px; align-items: center; padding: 8px 10px 8px 12px; border-radius: 10px; background: var(--wall-2); border-left: 4px solid #c6aff0; }
+.ev .hr { font-weight: 800; font-variant-numeric: tabular-nums; color: #c6aff0; font-size: 14px; white-space: nowrap; }
+.ev .grow { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.ev .rep { font-size: 12px; color: var(--muted); }
+.dslot.event { border-color: color-mix(in srgb, #c6aff0 50%, var(--line)); }
 .offnote { font-size: 14px; padding: 8px 12px; border-radius: 10px; background: var(--wall); }
 .method { font-size: 13px; color: var(--muted); background: var(--wall); border-radius: 10px; padding: 10px 12px; }
 .empty { border: 2px dashed var(--line); border-radius: 18px; padding: 28px 18px; text-align: center; color: var(--muted); display: grid; gap: 6px; }
@@ -225,6 +237,21 @@ button { cursor: pointer; }
     </div>
     <p class="hint" id="hint">Escribe una tarea, o un examen o entrega con su fecha y te hago un plan. También puedes pegar un aviso del campus virtual.</p>
   </form>
+
+  <section class="agenda" id="agenda">
+    <div class="agenda-head"><div class="label">Agenda</div><button class="btn sm" type="button" id="evToggle">+ Cita</button></div>
+    <form class="offform evform" id="evForm" hidden>
+      <label class="lbl full">Qué<input type="text" id="evTitle" placeholder="Dentista, clase de inglés, cena…" required></label>
+      <label class="lbl">Día<input type="date" id="evDate" required></label>
+      <span></span>
+      <label class="lbl">Desde<input type="time" id="evStart" required></label>
+      <label class="lbl">Hasta<input type="time" id="evEnd" required></label>
+      <label class="full chk"><input type="checkbox" id="evWeekly"> Se repite cada semana</label>
+      <label class="lbl" id="evUntilWrap" hidden>Hasta el día (opcional)<input type="date" id="evUntil"></label>
+      <div class="full row-btns"><button class="btn primary sm" type="submit">Guardar cita</button><button class="btn sm" type="button" id="evCancel">Cancelar</button></div>
+    </form>
+    <ul class="evlist" id="evList"></ul>
+  </section>
 
   <section class="plans" id="plans" hidden></section>
 
@@ -384,6 +411,7 @@ button { cursor: pointer; }
   if (!state || state.v !== 3) state = migrateOld() || sampleState();
   if (!Array.isArray(state.plans)) state.plans = [];
   if (!Array.isArray(state.daysOff)) state.daysOff = [];
+  if (!Array.isArray(state.events)) state.events = [];
   // Los exámenes y entregas que ya tenías como líneas pasan a tener su plan.
   function migratePlans() { if (!state.plansV) {
     state.notes.filter((n) => !n.done && n.due && n.area !== "life" && isDeadline(n.text)).forEach((n) => {
@@ -428,7 +456,9 @@ button { cursor: pointer; }
     else if (/\btrabajo\b|reunion|informe|jefe|cliente|turnos/.test(n)) area = "work";
     else if (/examen|parcial|practica|entrega|presentacion|asignatura|\btema\b|estudiar|matricula/.test(n)) area = "uni";
     else if (/\bpag(ar|o|os)\b|llamar|llamada|\bcita\b|medic|dentista|banco|recibo|factura|comprar|renovar|veterinari|seguro|hacienda|\bitv\b|\bbici\b|perro|pienso|cumple|regalo|devolver|reservar|alquiler|luz|agua|gimnasio|carrera|correos|paquete/.test(n)) area = "life";
-    return { due, area };
+    let time = null; const tm = n.match(/\ba las (\d{1,2})(?:[:.](\d{2}))?\b|\b(\d{1,2}):(\d{2})\b|\b(\d{1,2})\s?h\b/);
+    if (tm) { let h = +(tm[1] || tm[3] || tm[5]); const mi = +(tm[2] || tm[4] || 0); if (/\b(tarde|noche)\b/.test(n) && h < 12) h += 12; if (h < 24 && mi < 60) time = pad(h) + ":" + pad(mi); }
+    return { due, area, time };
   }
 
   // ---------- avisos del campus virtual (Moodle) ----------
@@ -544,7 +574,8 @@ button { cursor: pointer; }
   function cleanTitle(text) {
     let t = text;
     [/\s*(para\s+)?(el\s+|este\s+|pr[oó]ximo\s+)?(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)\b/i, /\s*pasado ma[ñn]ana/i, /\s*\bma[ñn]ana\b/i, /\s*\bhoy\b/i,
-     /\s*(para\s+)?(el\s+|del?\s+)?\d{1,2}[\/\-]\d{1,2}([\/\-]\d{2,4})?/i, /\s*(para\s+)?(el\s+)?\d{1,2}\s*(de\s*)?(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)[a-z]*/i, /\s*en \d+ d[ií]as?/i
+     /\s*(para\s+)?(el\s+|del?\s+)?\d{1,2}[\/\-]\d{1,2}([\/\-]\d{2,4})?/i, /\s*(para\s+)?(el\s+)?\d{1,2}\s*(de\s*)?(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)[a-z]*/i, /\s*en \d+ d[ií]as?/i,
+     /\s*a las \d{1,2}([:.]\d{2})?(\s+de la (tarde|noche|ma[ñn]ana))?/i, /\s*\b\d{1,2}:\d{2}\b/, /\s*\b\d{1,2}\s?h\b/
     ].forEach((re) => { t = t.replace(re, ""); });
     t = t.replace(/\s+(para|el|la|de|del)\s*$/i, "").replace(/\s{2,}/g, " ").trim() || text.trim();
     return cap1(t);
@@ -559,8 +590,15 @@ button { cursor: pointer; }
   const workOn = (d) => SC().work.days.includes(parse(d).getDay()) && !dayKind(d);
   const isShort = (d) => workOn(d) && (SC().work.shortDays.includes(parse(d).getDay()) || offOn(d).some((o) => o.kind === "short"));
   const gymOn = (d) => SC().gym.days.includes(parse(d).getDay()) && dayKind(d) !== "rest";
+  const eventsOn = (d) => (state.events || []).filter((ev) => ev.date === d || (ev.weekly && d > ev.date && parse(d).getDay() === parse(ev.date).getDay() && (!ev.until || d <= ev.until)))
+    .sort((a, b) => toMin(a.start) - toMin(b.start));
+  // Si el paseo o el gimnasio automáticos chocan con una cita, se mueven a después.
+  const pushPast = (start, dur, busy) => { let s0 = start, moved = true; while (moved) { moved = false; busy.forEach(([a, z]) => { if (s0 < z && s0 + dur > a) { s0 = z; moved = true; } }); } return s0; };
   function dayBlocks(d) {
     const s = SC(), out = [];
+    const evs = eventsOn(d).map((ev) => ({ t: "event", s: toMin(ev.start), e: Math.max(toMin(ev.end), toMin(ev.start) + 15), title: ev.title, id: ev.id }));
+    evs.forEach((b) => out.push(b));
+    const busy = evs.map((b) => [b.s, b.e]);
     let free = 10 * 60; // día sin trabajo: empieza a contar a las 10:00
     if (workOn(d)) {
       const end = toMin(isShort(d) ? s.work.shortEnd : s.work.end);
@@ -568,10 +606,10 @@ button { cursor: pointer; }
       free = end;
     }
     const dogMin = Math.max(60, +s.dog.min || 60);
-    const dogS = s.dog.mode === "fixed" ? toMin(s.dog.time) : free + 30;
-    out.push({ t: "dog", s: dogS, e: dogS + dogMin });
+    const dogS = s.dog.mode === "fixed" ? toMin(s.dog.time) : pushPast(free + 30, dogMin, busy);
+    out.push({ t: "dog", s: dogS, e: dogS + dogMin }); busy.push([dogS, dogS + dogMin]);
     if (gymOn(d)) {
-      const gymS = s.gym.mode === "fixed" ? toMin(s.gym.time) : dogS + dogMin + 30;
+      const gymS = s.gym.mode === "fixed" ? toMin(s.gym.time) : pushPast(dogS + dogMin + 30, +s.gym.min || 60, busy);
       out.push({ t: "gym", s: gymS, e: gymS + (+s.gym.min || 60) });
     }
     return out.sort((a, b) => a.s - b.s);
@@ -644,7 +682,7 @@ button { cursor: pointer; }
     $("picker").innerHTML = '<span class="small muted">Si en papel usas otro color esta semana, elígelo:</span>' +
       COLORS.map((c, i) => '<button type="button" data-pick="' + i + '" style="--c:' + c.c + '" aria-label="' + c.name + '" aria-pressed="' + (i === colorIdx(w0)) + '"></button>').join("");
     $("sample").hidden = !state.sample;
-    renderOff(); renderToday(); renderPlans(); renderFilter(); renderSoon(); renderWall(); renderDone();
+    renderOff(); renderAgenda(); renderToday(); renderPlans(); renderFilter(); renderSoon(); renderWall(); renderDone();
   }
 
   function renderFilter() {
@@ -735,11 +773,41 @@ button { cursor: pointer; }
     if (d) { state.daysOff = state.daysOff.filter((o) => o.id !== d.dataset.offdel); const n = replanAll(); save(); render(); toast(n ? "Quitado. Planes repartidos de nuevo." : "Quitado."); }
   });
 
+  function renderAgenda() {
+    const t = today(), out = [];
+    for (let i = 0; i < 14; i++) { const d = addDays(t, i), evs = eventsOn(d); if (evs.length) out.push({ d, evs }); }
+    $("evList").innerHTML = out.map(({ d, evs }) => '<li class="evday">' + (d === t ? "Hoy" : diff(d) === 1 ? "Mañana" : cap1(fmt(d))) + "</li>" +
+      evs.map((ev) => '<li class="ev"><span class="hr">' + hm(toMin(ev.start)) + "–" + hm(toMin(ev.end)) + '</span><span class="grow">' + esc(ev.title) + (ev.weekly ? ' <span class="rep">· cada semana</span>' : "") +
+        '</span><button class="x" type="button" data-evdel="' + ev.id + '" aria-label="Borrar cita">' + (evDelArmed === ev.id ? "¿Borrar" + (ev.weekly ? " todas" : "") + "?" : "✕") + "</button></li>").join("")).join("") ||
+      '<li class="small muted">No tienes citas en las próximas dos semanas. Pulsa «+ Cita» o escribe arriba algo como «dentista jueves a las 18».</li>';
+  }
+  let evDelArmed = null;
+  $("evToggle").onclick = () => { const f = $("evForm"); f.hidden = !f.hidden; if (!f.hidden) { $("evDate").value = $("evDate").value || today(); $("evTitle").focus(); } };
+  $("evCancel").onclick = () => { $("evForm").hidden = true; };
+  $("evWeekly").onchange = () => { $("evUntilWrap").hidden = !$("evWeekly").checked; };
+  $("evStart").onchange = () => { if (!$("evEnd").value || $("evEnd").value <= $("evStart").value) $("evEnd").value = hm(Math.min(toMin($("evStart").value) + 60, 23 * 60 + 59)).padStart(5, "0"); };
+  $("evForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const title = $("evTitle").value.trim(), date = $("evDate").value, st = $("evStart").value; let en = $("evEnd").value;
+    if (!title || !date || !st) return;
+    if (!en || en <= st) en = hm(Math.min(toMin(st) + 60, 23 * 60 + 59)).padStart(5, "0");
+    state.events.push({ id: uid(), title, date, start: st, end: en, weekly: $("evWeekly").checked, until: $("evWeekly").checked ? ($("evUntil").value || null) : null });
+    $("evForm").reset(); $("evUntilWrap").hidden = true; $("evForm").hidden = true;
+    scheduleAll(today()); save(); render(); toast("Cita guardada. He recolocado tu horario.");
+  });
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-evdel]"); if (!b) { if (evDelArmed && !e.target.closest(".ev")) { evDelArmed = null; renderAgenda(); } return; }
+    if (evDelArmed !== b.dataset.evdel) { evDelArmed = b.dataset.evdel; renderAgenda(); return; }
+    state.events = state.events.filter((x) => x.id !== b.dataset.evdel); evDelArmed = null;
+    scheduleAll(today()); save(); render(); toast("Cita borrada.");
+  });
+
   function dayLineHTML(d) {
     const rt = (state.routines || {})[d] || {}, s = SC(), out = [];
     dayBlocks(d).forEach((b) => {
       const h = hm(b.s) + "–" + hm(b.e);
-      if (b.t === "work") out.push('<span class="dslot"><span class="w">' + (b.short ? "Jornada reducida" : "Trabajo") + '</span><span class="hr">' + h + "</span></span>");
+      if (b.t === "event") out.push('<span class="dslot event"><span class="w">' + esc(b.title) + '</span><span class="hr">' + h + "</span></span>");
+      else if (b.t === "work") out.push('<span class="dslot"><span class="w">' + (b.short ? "Jornada reducida" : "Trabajo") + '</span><span class="hr">' + h + "</span></span>");
       else out.push('<span class="dslot tick' + (rt[b.t] ? " done" : "") + '"><button class="check" type="button" data-rt="' + b.t + '" aria-pressed="' + !!rt[b.t] + '" aria-label="Hecho">' + (rt[b.t] ? "✓" : "") + '</button><span class="w">' + (b.t === "dog" ? "Paseo" + (s.dog.name ? " con " + esc(s.dog.name) : "") : "Gimnasio") + '</span><span class="hr">' + h + "</span></span>");
     });
     let planned = 0; state.plans.filter((p) => !p.done).forEach((p) => p.steps.forEach((st) => { if (!st.done && st.day === d) planned += durOf(st); }));
@@ -878,7 +946,8 @@ button { cursor: pointer; }
     if (composeArea) bits.push(AREA[composeArea]);
     if ($("due").value) bits.push("para el " + fmt($("due").value));
     const willPlan = $("due").value && isDeadline($("text").value) && composeArea !== "life";
-    $("hint").textContent = willPlan ? "Es un " + kindOf($("text").value).toLowerCase() + ": te haré un plan por pasos hasta el " + fmt($("due").value) + "." :
+    const tm = guess($("text").value).time;
+    $("hint").textContent = $("due").value && tm && !willPlan ? "Lo apunto en tu agenda: " + fmt($("due").value) + " a las " + hm(toMin(tm)) + " (1 h). Lo demás se recoloca alrededor." : willPlan ? "Es un " + kindOf($("text").value).toLowerCase() + ": te haré un plan por pasos hasta el " + fmt($("due").value) + "." :
       bits.length ? "Lo pego como: " + bits.join(" · ") + ". Puedes cambiarlo." : DEFAULT_HINT;
   }
   $("text").addEventListener("paste", (e) => {
@@ -909,6 +978,15 @@ button { cursor: pointer; }
       $("hint").textContent = DEFAULT_HINT; render();
       toast("Te he hecho un plan de " + p.steps.length + " pasos hasta el " + fmt(dueV) + ". Revísalo abajo.");
       const el = $("plan-" + p.id); if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
+      return;
+    }
+    const tmv = guess(text).time;
+    if (dueV && tmv) {
+      state.events.push({ id: uid(), title: cleanTitle(text), date: dueV, start: tmv, end: hm(Math.min(toMin(tmv) + 60, 23 * 60 + 59)).padStart(5, "0"), weekly: false, until: null });
+      scheduleAll(today()); save();
+      $("text").value = ""; $("due").value = ""; composeArea = null; areaTouched = false; dueTouched = false; syncOpts();
+      $("hint").textContent = DEFAULT_HINT; render();
+      toast("Cita apuntada el " + fmt(dueV) + " a las " + hm(toMin(tmv)) + ". He recolocado tu día.");
       return;
     }
     state.notes.push({ id: uid(), text, week: monday(today()), created: today(), area: composeArea, due: $("due").value || null, done: false });
@@ -971,7 +1049,7 @@ button { cursor: pointer; }
     if (el && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); el.click(); }
   });
   $("weekBtn").onclick = () => { pickerOpen = !pickerOpen; render(); };
-  $("clearSample").onclick = () => { state = { v: 3, sample: false, weekColor: {}, notes: [], plans: [], plansV: 1, daysOff: [], sched: state.sched, routines: {} }; save(); render(); toast("Listo. Tu pared está vacía."); $("text").focus(); };
+  $("clearSample").onclick = () => { state = { v: 3, sample: false, weekColor: {}, notes: [], plans: [], plansV: 1, daysOff: [], sched: state.sched, routines: {}, events: [] }; save(); render(); toast("Listo. Tu pared está vacía."); $("text").focus(); };
 
   function toastUndo(msg, fn) {
     const t = $("toast"); t.innerHTML = "<span>" + esc(msg) + '</span><button type="button" id="toastUndo2">Deshacer</button>';
@@ -998,7 +1076,7 @@ button { cursor: pointer; }
   $("importFile").onchange = (e) => {
     const f = e.target.files[0]; if (!f) return;
     const r = new FileReader();
-    r.onload = () => { try { const s = JSON.parse(r.result); if (s.v !== 3 || !Array.isArray(s.notes)) throw 0; state = s; if (!Array.isArray(state.plans)) state.plans = []; if (!Array.isArray(state.daysOff)) state.daysOff = []; if (!state.sched) state.sched = defaultSched(); save(); fillSched(); render(); toast("Copia recuperada."); } catch (err) { toast("Ese archivo no es una copia de tu pared."); } };
+    r.onload = () => { try { const s = JSON.parse(r.result); if (s.v !== 3 || !Array.isArray(s.notes)) throw 0; state = s; if (!Array.isArray(state.plans)) state.plans = []; if (!Array.isArray(state.daysOff)) state.daysOff = []; if (!state.sched) state.sched = defaultSched(); if (!Array.isArray(state.events)) state.events = []; save(); fillSched(); render(); toast("Copia recuperada."); } catch (err) { toast("Ese archivo no es una copia de tu pared."); } };
     r.readAsText(f); e.target.value = "";
   };
 
