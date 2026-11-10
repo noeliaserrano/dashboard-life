@@ -104,6 +104,46 @@ button { cursor: pointer; }
 .note .lbl { font-size: 13px; font-weight: 800; color: var(--muted); display: grid; gap: 4px; }
 
 .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* hoy toca */
+.todaybox { background: var(--wall-2); border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: 18px; padding: 16px; display: grid; gap: 12px; }
+.todaybox h2 { font-size: 21px; }
+.steprow { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; }
+.steprow .what { font-weight: 700; overflow-wrap: anywhere; }
+.steprow .why { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.steprow.late .why b { color: var(--warn); }
+.steprow.done .what { text-decoration: line-through; color: var(--muted); }
+.check { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--c, var(--accent)); background: none; display: grid; place-items: center; padding: 0; color: #2a2218; font-weight: 900; font-size: 15px; }
+.check[aria-pressed="true"] { background: var(--c, var(--accent)); }
+.check.sm { width: 24px; height: 24px; font-size: 12px; }
+.calm { font-size: 14px; color: var(--muted); }
+.row-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* exámenes y entregas */
+.plans { display: grid; gap: 10px; }
+.plan { background: var(--wall-2); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.plan-head { width: 100%; background: none; border: 0; text-align: left; padding: 14px 16px; display: grid; gap: 6px; }
+.plan-top { display: flex; justify-content: space-between; gap: 10px; align-items: start; }
+.plan-title { font-weight: 800; font-size: 16px; overflow-wrap: anywhere; min-width: 0; }
+.pill { font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+.pill.ok { color: #a8dc96; background: rgba(168,220,150,.14); }
+.pill.late { color: var(--warn); background: color-mix(in srgb, var(--warn) 15%, transparent); }
+.pill.tight { color: var(--accent); background: color-mix(in srgb, var(--accent) 15%, transparent); }
+.plan-sub { font-size: 13px; color: var(--muted); display: flex; gap: 4px 12px; flex-wrap: wrap; }
+.plan-sub b { color: var(--ink); }
+.bar { height: 6px; border-radius: 99px; background: var(--wall); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); border-radius: 99px; }
+.plan-body { border-top: 1px solid var(--line); padding: 12px 16px 16px; display: grid; gap: 10px; }
+.pstep { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; font-size: 15px; }
+.pstep .d { font-size: 12px; font-weight: 800; color: var(--muted); white-space: nowrap; }
+.pstep .d.today { color: var(--accent); } .pstep .d.late { color: var(--warn); }
+.pstep.done .n { text-decoration: line-through; color: var(--muted); }
+.pedit { display: grid; grid-template-columns: 1fr 150px auto; gap: 6px; align-items: center; }
+.pedit input { background: var(--wall); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; height: 38px; min-width: 0; width: 100%; }
+.pedit input[type=date] { -webkit-appearance: none; appearance: none; display: block; }
+@media (max-width: 420px) { .pedit { grid-template-columns: 1fr auto; } .pedit input[type=date] { grid-column: 1; } }
+.x { border: 0; background: none; color: var(--faint); font-size: 16px; padding: 4px 8px; }
+.method { font-size: 13px; color: var(--muted); background: var(--wall); border-radius: 10px; padding: 10px 12px; }
 .empty { border: 2px dashed var(--line); border-radius: 18px; padding: 28px 18px; text-align: center; color: var(--muted); display: grid; gap: 6px; }
 .empty b { font-family: var(--f-display); font-weight: 400; font-size: 20px; color: var(--ink); }
 
@@ -138,6 +178,8 @@ button { cursor: pointer; }
     <button class="btn sm" type="button" id="clearSample">Quitar ejemplos</button>
   </div>
 
+  <section class="todaybox" id="todayBox" hidden></section>
+
   <form class="compose" id="compose" autocomplete="off">
     <div class="compose-row">
       <input type="text" id="text" placeholder="Escribe un pósit…" aria-label="Texto del pósit" enterkeyhint="done">
@@ -150,8 +192,10 @@ button { cursor: pointer; }
       <button type="button" class="chip" data-area="life" aria-pressed="false">Personal</button>
       <label class="date-chip">Fecha <input type="date" id="due" aria-label="Fecha límite (opcional)"></label>
     </div>
-    <p class="hint" id="hint">Solo hace falta el texto. También puedes pegar un aviso del campus virtual.</p>
+    <p class="hint" id="hint">Escribe una tarea, o un examen o entrega con su fecha y te hago un plan. También puedes pegar un aviso del campus virtual.</p>
   </form>
+
+  <section class="plans" id="plans" hidden></section>
 
   <section class="soon" id="soon" hidden></section>
 
@@ -215,7 +259,7 @@ button { cursor: pointer; }
         n("Renovar el seguro de la bici", w2, { area: "life" }),
         n("Práctica 3 de Bases de Datos", w1, { area: "uni", due: addDays(today(), 3) }),
         n("Informe mensual", w1, { area: "work", due: addDays(today(), 6) }),
-        n("Estudiar tema 4 de Estadística", w0, { area: "uni", due: addDays(today(), 12) }),
+        n("Examen parcial de Estadística", w0, { area: "uni", due: addDays(today(), 9) }),
         n("Pagar el recibo del gimnasio", w0, { area: "life", due: addDays(today(), 2) }),
         n("Comprar pienso", w0, { area: "life" }),
         n("Revisar cuadro de turnos", w0, { area: "work" }),
@@ -240,6 +284,15 @@ button { cursor: pointer; }
   let state;
   try { state = JSON.parse(localStorage.getItem(KEY)); } catch (e) { state = null; }
   if (!state || state.v !== 3) state = migrateOld() || sampleState();
+  if (!Array.isArray(state.plans)) state.plans = [];
+  // Los exámenes y entregas que ya tenías como líneas pasan a tener su plan.
+  function migratePlans() { if (!state.plansV) {
+    state.notes.filter((n) => !n.done && n.due && n.area !== "life" && isDeadline(n.text)).forEach((n) => {
+      const p = makePlan(n.text, n.due, n.area || "uni"); state.plans.push(p); n.done = true; n.tossed = true; n.doneAt = today();
+    });
+    if (state.sample && state.plans.length) { const st = state.plans.sort((x, y) => x.due.localeCompare(y.due))[0].steps[0]; st.day = addDays(today(), -1); }
+    state.plansV = 1; save();
+  } }
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
 
   // Cada semana nueva coge el siguiente color de la rueda. Se puede cambiar a mano.
@@ -302,12 +355,63 @@ button { cursor: pointer; }
   }
   function addCampus(items) {
     const w0 = monday(today());
-    items.forEach((it) => state.notes.push({ id: uid(), text: it.text, week: w0, created: today(), area: "uni", due: it.due, done: false }));
+    items.forEach((it) => { const p = makePlan(it.text, it.due, "uni"); state.plans.push(p); openPlan = p.id; });
     save(); $("text").value = ""; $("hint").textContent = DEFAULT_HINT; render();
-    toast(items.length === 1 ? "Pegado desde el aviso del campus: vence el " + fmt(items[0].due) + "." : "Pegados " + items.length + " pósits desde el aviso del campus.");
+    toast(items.length === 1 ? "Te he hecho un plan hasta el " + fmt(items[0].due) + "." : "Te he hecho " + items.length + " planes desde el aviso del campus.");
+  }
+
+  // ---------- exámenes y entregas: plan por pasos ----------
+  const DEADLINE_RE = /examen|parcial|\bfinal\b|entrega|practica|presentacion|exposicion|memoria|defensa|deposito|trabajo final/;
+  const isDeadline = (text) => DEADLINE_RE.test(norm(text));
+  const kindOf = (text) => { const n = norm(text); return /examen|parcial|\bfinal\b/.test(n) ? "Examen" : /presentacion|exposicion|defensa/.test(n) ? "Presentación" : "Entrega"; };
+  const METHOD = {
+    "Examen": "Un tema por sesión: lee, haz un esquema y cierra con 3 preguntas de memoria. Al final, practica con exámenes de otros años y haz un repaso.",
+    "Entrega": "Primero entender bien qué piden y apuntar dudas. Luego hacerlo en dos partes y dejar un día para revisar y entregar con calma.",
+    "Presentación": "Guion primero, diapositivas después y al menos dos ensayos en voz alta."
+  };
+  function template(kind, temas) {
+    if (kind === "Examen") {
+      const t = []; for (let i = 1; i <= (temas || 4); i++) t.push("Estudiar tema " + i + " (esquema + preguntas)");
+      return ["Organizar apuntes y ver qué entra"].concat(t, ["Hacer ejercicios o exámenes de otros años", "Repaso final"]);
+    }
+    if (kind === "Presentación") return ["Preparar el guion", "Hacer las diapositivas", "Ensayar en voz alta", "Ensayo final"];
+    return ["Leer el enunciado y apuntar dudas", "Hacer la primera parte", "Hacer la segunda parte", "Revisar y entregar"];
+  }
+  // Reparte los pasos pendientes de forma uniforme entre "from" y el día antes de la fecha.
+  function distribute(plan, from) {
+    const t = today(); if (from < t) from = t;
+    let end = addDays(plan.due, -1);
+    if (end < from) end = plan.due < from ? from : plan.due;
+    const days = []; for (let d = from; d <= end; d = addDays(d, 1)) days.push(d);
+    const rest = plan.steps.filter((x) => !x.done);
+    rest.forEach((st, i) => { st.day = days[Math.floor(i * days.length / rest.length)]; });
+  }
+  function cleanTitle(text) {
+    let t = text;
+    [/\s*(para\s+)?(el\s+|este\s+|pr[oó]ximo\s+)?(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)\b/i, /\s*pasado ma[ñn]ana/i, /\s*\bma[ñn]ana\b/i, /\s*\bhoy\b/i,
+     /\s*(para\s+)?(el\s+|del?\s+)?\d{1,2}[\/\-]\d{1,2}([\/\-]\d{2,4})?/i, /\s*(para\s+)?(el\s+)?\d{1,2}\s*(de\s*)?(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)[a-z]*/i, /\s*en \d+ d[ií]as?/i
+    ].forEach((re) => { t = t.replace(re, ""); });
+    t = t.replace(/\s+(para|el|la|de|del)\s*$/i, "").replace(/\s{2,}/g, " ").trim() || text.trim();
+    return cap1(t);
+  }
+  function makePlan(title, due, area, kind) {
+    kind = kind || kindOf(title);
+    const plan = { id: uid(), title, due, area: area || "uni", kind, temas: kind === "Examen" ? 4 : null, created: today(), done: false,
+      steps: template(kind, 4).map((n) => ({ id: uid(), name: n, day: null, done: false })) };
+    distribute(plan, today());
+    return plan;
+  }
+  const findPlan = (id) => state.plans.find((x) => x.id === id);
+  function planStatus(p) {
+    const rest = p.steps.filter((x) => !x.done);
+    if (rest.some((x) => x.day < today())) return ["late", "Atrasado"];
+    const left = Math.max(1, diff(p.due));
+    if (rest.length > left) return ["tight", "Va justo"];
+    return ["ok", "Al día"];
   }
 
   // ---------- pintar ----------
+  let openPlan = null, editPlan = null, delArmed = null;
   let openId = null, editId = null, splitId = null, pickerOpen = false, areaFilter = "all";
   const inFilter = (n) => areaFilter === "all" || (areaFilter === "none" ? !n.area : n.area === areaFilter);
   let composeArea = null, areaTouched = false, dueTouched = false;
@@ -327,7 +431,7 @@ button { cursor: pointer; }
     $("picker").innerHTML = '<span class="small muted">Si en papel usas otro color esta semana, elígelo:</span>' +
       COLORS.map((c, i) => '<button type="button" data-pick="' + i + '" style="--c:' + c.c + '" aria-label="' + c.name + '" aria-pressed="' + (i === colorIdx(w0)) + '"></button>').join("");
     $("sample").hidden = !state.sample;
-    renderFilter(); renderSoon(); renderWall(); renderDone();
+    renderToday(); renderPlans(); renderFilter(); renderSoon(); renderWall(); renderDone();
   }
 
   function renderFilter() {
@@ -389,6 +493,112 @@ button { cursor: pointer; }
     }).join("");
   }
 
+  function renderToday() {
+    const t = today(), open = state.plans.filter((p) => !p.done);
+    $("todayBox").hidden = !open.length;
+    if (!open.length) return;
+    const rows = [];
+    open.forEach((p) => p.steps.forEach((st) => { if (st.day && (st.day < t ? !st.done : st.day === t)) rows.push({ p, st }); }));
+    rows.sort((a, b) => a.st.day.localeCompare(b.st.day) || a.p.due.localeCompare(b.p.due));
+    const late = rows.filter((r) => r.st.day < t);
+    const todayPending = rows.filter((r) => r.st.day === t && !r.st.done);
+    let html = "<h2>Hoy toca</h2>";
+    if (!rows.length) html += '<p class="calm">Hoy no tienes pasos de exámenes ni entregas. Descansa o adelanta algo si te apetece.</p>';
+    html += rows.map(({ p, st }) => {
+      const k = diff(p.due);
+      return '<div class="steprow' + (st.day < t ? " late" : "") + (st.done ? " done" : "") + '"><button class="check" type="button" data-step="' + p.id + ":" + st.id + '" aria-pressed="' + st.done + '" aria-label="Hecho">' + (st.done ? "✓" : "") + "</button>" +
+        '<div><div class="what">' + esc(st.name) + '</div><div class="why">' + esc(p.title) + " · " + (k === 0 ? "es hoy" : k === 1 ? "es mañana" : "faltan " + k + " días") + (st.day < t ? " · <b>era del " + fmt(st.day) + "</b>" : "") + "</div></div></div>";
+    }).join("");
+    if (late.length) html += '<p class="calm">' + (late.length === 1 ? "Un paso se quedó" : late.length + " pasos se quedaron") + " sin hacer otros días. No pasa nada: los reparto de nuevo en los días que quedan.</p>" +
+      '<div class="row-btns"><button class="btn primary sm" type="button" data-replanall="today">Replanificar desde hoy</button></div>';
+    else if (todayPending.length) html += '<div class="row-btns"><button class="btn sm" type="button" data-replanall="tomorrow">Hoy no he podido: muévelo a otros días</button></div>';
+    $("todayBox").innerHTML = html;
+  }
+
+  function renderPlans() {
+    const open = state.plans.filter((p) => !p.done).sort((a, b) => a.due.localeCompare(b.due));
+    $("plans").hidden = !open.length;
+    if (!open.length) return;
+    $("plans").innerHTML = '<div class="label">Exámenes y entregas</div>' + open.map((p) => {
+      const [cls, txt] = planStatus(p), dn = p.steps.filter((x) => x.done).length, k = diff(p.due);
+      const next = p.steps.find((x) => !x.done);
+      const isOpen = openPlan === p.id || editPlan === p.id;
+      let body = "";
+      if (editPlan === p.id) {
+        body = '<div class="plan-body">' +
+          '<label class="lbl small muted" style="display:grid;gap:4px">Título<input type="text" id="peTitle" value="' + esc(p.title) + '" style="background:var(--wall);border:1px solid var(--line);border-radius:8px;padding:7px 9px;height:38px"></label>' +
+          '<label class="lbl small muted" style="display:grid;gap:4px">Fecha<input type="date" id="peDue" value="' + p.due + '" style="-webkit-appearance:none;appearance:none;display:block;background:var(--wall);border:1px solid var(--line);border-radius:8px;padding:7px 9px;height:38px;max-width:220px"></label>' +
+          (p.kind === "Examen" && !p.steps.some((x) => x.done) ? '<label class="small muted" style="display:flex;gap:8px;align-items:center">¿Cuántos temas entran? <input type="number" id="peTemas" min="1" max="30" value="' + (p.temas || 4) + '" style="width:70px;background:var(--wall);border:1px solid var(--line);border-radius:8px;padding:6px 8px"></label>' : "") +
+          '<div class="small muted">Pasos (puedes cambiar el texto y el día):</div>' +
+          p.steps.map((st, i) => '<div class="pedit"><input type="text" data-pe="name" data-i="' + i + '" value="' + esc(st.name) + '"' + (st.done ? " disabled" : "") + '><input type="date" data-pe="day" data-i="' + i + '" value="' + (st.day || "") + '"' + (st.done ? " disabled" : "") + '><button class="x" type="button" data-perm="' + i + '" aria-label="Quitar paso">✕</button></div>').join("") +
+          '<div class="row-btns"><button class="btn sm" type="button" data-peadd="1">+ Paso</button></div>' +
+          '<div class="row-btns"><button class="btn primary sm" type="button" data-pesave="' + p.id + '">Guardar</button><button class="btn sm" type="button" data-pecancel="1">Cancelar</button>' +
+          '<button class="btn sm" type="button" data-pedel="' + p.id + '" style="color:var(--warn);margin-left:auto">' + (delArmed === p.id ? "Pulsa otra vez para borrar" : "Borrar") + "</button></div></div>";
+      } else if (isOpen) {
+        body = '<div class="plan-body"><p class="method"><b>Método:</b> ' + METHOD[p.kind] + "</p>" +
+          p.steps.map((st) => { const dd = st.day ? diff(st.day) : null;
+            return '<div class="pstep' + (st.done ? " done" : "") + '"><button class="check sm" type="button" data-step="' + p.id + ":" + st.id + '" aria-pressed="' + st.done + '" aria-label="Hecho">' + (st.done ? "✓" : "") + '</button><span class="n">' + esc(st.name) + '</span><span class="d' + (!st.done && dd < 0 ? " late" : dd === 0 ? " today" : "") + '">' + (st.done ? "hecho" : dd === 0 ? "hoy" : dd === 1 ? "mañana" : fmt(st.day)) + "</span></div>"; }).join("") +
+          '<div class="row-btns"><button class="btn primary sm" type="button" data-replan="' + p.id + '">Replanificar desde hoy</button><button class="btn sm" type="button" data-peopen="' + p.id + '">Editar plan</button><button class="btn sm" type="button" data-pdone="' + p.id + '">Ya lo entregué</button></div></div>';
+      }
+      return '<div class="plan" id="plan-' + p.id + '"><button class="plan-head" type="button" data-popen="' + p.id + '" aria-expanded="' + isOpen + '">' +
+        '<div class="plan-top"><span class="plan-title">' + esc(p.title) + '</span><span class="pill ' + cls + '">' + txt + "</span></div>" +
+        '<div class="plan-sub"><span>' + p.kind + " · <b>" + (k < 0 ? "se pasó" : k === 0 ? "hoy" : k === 1 ? "mañana" : "en " + k + " días") + "</b> (" + fmt(p.due) + ")</span><span>" + dn + "/" + p.steps.length + " pasos</span>" +
+        (next && !isOpen ? "<span>Siguiente: " + esc(next.name) + " · " + (next.day === today() ? "hoy" : next.day < today() ? "atrasado" : fmt(next.day)) + "</span>" : "") + "</div>" +
+        '<div class="bar"><i style="width:' + Math.round(dn / Math.max(1, p.steps.length) * 100) + '%"></i></div></button>' + body + "</div>";
+    }).join("");
+  }
+
+  // acciones de los planes
+  let lastPlanDone = null;
+  document.addEventListener("click", (e) => {
+    const el = e.target.closest("[data-step],[data-replan],[data-replanall],[data-popen],[data-peopen],[data-pesave],[data-pecancel],[data-peadd],[data-perm],[data-pedel],[data-pdone]");
+    if (!el) return;
+    const ds = el.dataset;
+    if (ds.step) {
+      const [pid, sid] = ds.step.split(":"), p = findPlan(pid), st = p.steps.find((x) => x.id === sid);
+      st.done = !st.done; if (st.done) st.doneAt = today(); else delete st.doneAt;
+      save(); render();
+      if (st.done) { const left = p.steps.filter((x) => !x.done).length; toast(left ? "Hecho. Te quedan " + left + (left === 1 ? " paso" : " pasos") + " para esto." : "¡Plan completo! Solo queda entregarlo."); }
+    }
+    else if (ds.replan) { const p = findPlan(ds.replan); distribute(p, today()); save(); render(); toast("Replanificado: los pasos que quedan, repartidos hasta el " + fmt(addDays(p.due, -1)) + "."); }
+    else if (ds.replanall) {
+      const from = ds.replanall === "tomorrow" ? addDays(today(), 1) : today();
+      state.plans.filter((p) => !p.done).forEach((p) => { if (p.steps.some((x) => !x.done && x.day <= (ds.replanall === "tomorrow" ? today() : addDays(today(), -1)))) distribute(p, from); });
+      save(); render(); toast(ds.replanall === "tomorrow" ? "Movido a los próximos días. Mañana será otro día." : "Replanificado desde hoy.");
+    }
+    else if (ds.popen) { openPlan = openPlan === ds.popen && editPlan !== ds.popen ? null : ds.popen; editPlan = null; delArmed = null; render(); }
+    else if (ds.peopen) { editPlan = ds.peopen; openPlan = ds.peopen; delArmed = null; render(); }
+    else if (ds.pecancel) { editPlan = null; delArmed = null; render(); }
+    else if (ds.peadd || ds.perm != null) {
+      const p = findPlan(editPlan); readEdits(p);
+      if (ds.peadd) p.steps.push({ id: uid(), name: "", day: addDays(p.due, -1) < today() ? today() : addDays(p.due, -1), done: false });
+      else p.steps.splice(+ds.perm, 1);
+      render();
+    }
+    else if (ds.pesave) {
+      const p = findPlan(ds.pesave), oldDue = p.due, oldTemas = p.temas; readEdits(p);
+      const tm = $("peTemas");
+      if (tm && +tm.value !== oldTemas) { p.temas = Math.max(1, Math.min(30, +tm.value || 4)); p.steps = template(p.kind, p.temas).map((n) => ({ id: uid(), name: n, day: null, done: false })); distribute(p, today()); }
+      else if (p.due !== oldDue) distribute(p, today());
+      p.steps = p.steps.filter((x) => x.name.trim());
+      editPlan = null; save(); render(); toast("Plan guardado.");
+    }
+    else if (ds.pedel) {
+      if (delArmed !== ds.pedel) { delArmed = ds.pedel; render(); return; }
+      state.plans = state.plans.filter((x) => x.id !== ds.pedel); editPlan = openPlan = delArmed = null; save(); render(); toast("Plan borrado.");
+    }
+    else if (ds.pdone) {
+      const p = findPlan(ds.pdone); p.done = true; p.doneAt = today(); lastPlanDone = p.id; openPlan = null; save(); render();
+      toastUndo("¡Entregado! Uno menos.", () => { const q = findPlan(lastPlanDone); if (q) { q.done = false; delete q.doneAt; save(); render(); } });
+    }
+  });
+  function readEdits(p) {
+    const ti = $("peTitle"), du = $("peDue");
+    if (ti && ti.value.trim()) p.title = ti.value.trim();
+    if (du && du.value) p.due = du.value;
+    document.querySelectorAll("[data-pe]").forEach((inp) => { const st = p.steps[+inp.dataset.i]; if (!st || st.done) return; if (inp.dataset.pe === "name") st.name = inp.value; else if (inp.value) st.day = inp.value; });
+  }
+
   function renderDone() {
     const w0 = monday(today());
     const done = state.notes.filter((n) => n.done && !n.tossed).sort((a, b) => (b.doneAt || "").localeCompare(a.doneAt || ""));
@@ -405,7 +615,9 @@ button { cursor: pointer; }
     const bits = [];
     if (composeArea) bits.push(AREA[composeArea]);
     if ($("due").value) bits.push("para el " + fmt($("due").value));
-    $("hint").textContent = bits.length ? "Lo pego como: " + bits.join(" · ") + ". Puedes cambiarlo." : DEFAULT_HINT;
+    const willPlan = $("due").value && isDeadline($("text").value) && composeArea !== "life";
+    $("hint").textContent = willPlan ? "Es un " + kindOf($("text").value).toLowerCase() + ": te haré un plan por pasos hasta el " + fmt($("due").value) + "." :
+      bits.length ? "Lo pego como: " + bits.join(" · ") + ". Puedes cambiarlo." : DEFAULT_HINT;
   }
   $("text").addEventListener("paste", (e) => {
     const raw = (e.clipboardData || window.clipboardData)?.getData("text") || "";
@@ -428,6 +640,15 @@ button { cursor: pointer; }
     const text = $("text").value.trim(); if (!text) { $("text").focus(); return; }
     const campus = parseCampus(text);
     if (campus) { addCampus(campus); return; }
+    const dueV = $("due").value;
+    if (dueV && isDeadline(text) && composeArea !== "life") {
+      const p = makePlan(cleanTitle(text), dueV, composeArea || "uni"); state.plans.push(p); openPlan = p.id; save();
+      $("text").value = ""; $("due").value = ""; composeArea = null; areaTouched = false; dueTouched = false; syncOpts();
+      $("hint").textContent = DEFAULT_HINT; render();
+      toast("Te he hecho un plan de " + p.steps.length + " pasos hasta el " + fmt(dueV) + ". Revísalo abajo.");
+      const el = $("plan-" + p.id); if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
+      return;
+    }
     state.notes.push({ id: uid(), text, week: monday(today()), created: today(), area: composeArea, due: $("due").value || null, done: false });
     save();
     $("text").value = ""; $("due").value = ""; composeArea = null; areaTouched = false; dueTouched = false; syncOpts();
@@ -436,7 +657,7 @@ button { cursor: pointer; }
   });
 
   // ---------- tocar pósits ----------
-  let lastDone = null;
+  let lastDone = null, tT;
   const find = (id) => state.notes.find((x) => x.id === id);
   document.addEventListener("click", (e) => {
     const el = e.target.closest("[data-open],[data-done],[data-edit],[data-split],[data-toss],[data-save],[data-cancel],[data-dosplit],[data-editarea],[data-undo],[data-pick],[data-filter]");
@@ -488,10 +709,14 @@ button { cursor: pointer; }
     if (el && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); el.click(); }
   });
   $("weekBtn").onclick = () => { pickerOpen = !pickerOpen; render(); };
-  $("clearSample").onclick = () => { state = { v: 3, sample: false, weekColor: {}, notes: [] }; save(); render(); toast("Listo. Tu pared está vacía."); $("text").focus(); };
+  $("clearSample").onclick = () => { state = { v: 3, sample: false, weekColor: {}, notes: [], plans: [], plansV: 1 }; save(); render(); toast("Listo. Tu pared está vacía."); $("text").focus(); };
 
+  function toastUndo(msg, fn) {
+    const t = $("toast"); t.innerHTML = "<span>" + esc(msg) + '</span><button type="button" id="toastUndo2">Deshacer</button>';
+    t.hidden = false; clearTimeout(tT); tT = setTimeout(() => { t.hidden = true; }, 4500);
+    $("toastUndo2").onclick = () => { fn(); t.hidden = true; };
+  }
   // ---------- aviso con deshacer ----------
-  let tT;
   function toast(msg, undo) {
     const t = $("toast");
     t.innerHTML = "<span>" + esc(msg) + "</span>" + (undo ? '<button type="button" id="toastUndo">Deshacer</button>' : "");
@@ -511,7 +736,7 @@ button { cursor: pointer; }
   $("importFile").onchange = (e) => {
     const f = e.target.files[0]; if (!f) return;
     const r = new FileReader();
-    r.onload = () => { try { const s = JSON.parse(r.result); if (s.v !== 3 || !Array.isArray(s.notes)) throw 0; state = s; save(); render(); toast("Copia recuperada."); } catch (err) { toast("Ese archivo no es una copia de tu pared."); } };
+    r.onload = () => { try { const s = JSON.parse(r.result); if (s.v !== 3 || !Array.isArray(s.notes)) throw 0; state = s; if (!Array.isArray(state.plans)) state.plans = []; save(); render(); toast("Copia recuperada."); } catch (err) { toast("Ese archivo no es una copia de tu pared."); } };
     r.readAsText(f); e.target.value = "";
   };
 
@@ -520,6 +745,7 @@ button { cursor: pointer; }
   setInterval(refresh, 60000);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
 
+  migratePlans();
   render();
 })();
 </script>
