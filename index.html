@@ -149,7 +149,7 @@ button { cursor: pointer; }
       <button type="button" class="chip" data-area="tfg" aria-pressed="false">TFG</button>
       <label class="date-chip">Fecha <input type="date" id="due" aria-label="Fecha límite (opcional)"></label>
     </div>
-    <p class="hint" id="hint">Solo hace falta el texto. Lo demás es opcional.</p>
+    <p class="hint" id="hint">Solo hace falta el texto. También puedes pegar un aviso del campus virtual.</p>
   </form>
 
   <section class="soon" id="soon" hidden></section>
@@ -273,6 +273,35 @@ button { cursor: pointer; }
     return { due, area };
   }
 
+  // ---------- avisos del campus virtual (Moodle) ----------
+  // "Las siguientes tareas vencerán en martes, 17 de noviembre de 2026. <tarea> Vencimiento: 11:59 PM ..."
+  function parseCampus(raw) {
+    const m = raw.match(/vencer[aá]n?\s+(?:en\s+|el\s+)?(?:[a-záéíóú]+,\s*)?(\d{1,2})\s+de\s+([a-záéíóú]+)(?:\s+de\s+(\d{4}))?\.?/i);
+    if (!m) return null;
+    const mi = MONL.indexOf(norm(m[2]));
+    if (mi < 0) return null;
+    const due = iso(new Date(m[3] ? +m[3] : parse(today()).getFullYear(), mi, +m[1]));
+    const rest = raw.slice(m.index + m[0].length);
+    const times = [...rest.matchAll(/vencimiento:\s*(\d{1,2}):(\d{2})\s*(am|pm)?/gi)].map((t) => {
+      let h = +t[1]; const ap = (t[3] || "").toLowerCase();
+      if (ap === "pm" && h < 12) h += 12; if (ap === "am" && h === 12) h = 0;
+      return pad(h) + ":" + t[2];
+    });
+    const parts = rest.split(/vencimiento:\s*\d{1,2}:\d{2}\s*(?:am|pm)?/i).map((x) => x.replace(/\s+/g, " ").trim()).filter((x) => x && x.length < 250);
+    if (!parts.length) return null;
+    return parts.map((x, i) => {
+      const k = x.match(/^(.*?)\s+en curso\s+\d{2}\/\d{2}\s+\d+\s+(.+)$/i);
+      const title = k ? k[1] + " · " + k[2] : x;
+      return { text: title + (times[i] ? " (hasta las " + times[i] + ")" : ""), due };
+    });
+  }
+  function addCampus(items) {
+    const w0 = monday(today());
+    items.forEach((it) => state.notes.push({ id: uid(), text: it.text, week: w0, created: today(), area: "uni", due: it.due, done: false }));
+    save(); $("text").value = ""; $("hint").textContent = DEFAULT_HINT; render();
+    toast(items.length === 1 ? "Pegado desde el aviso del campus: vence el " + fmt(items[0].due) + "." : "Pegados " + items.length + " pósits desde el aviso del campus.");
+  }
+
   // ---------- pintar ----------
   let openId = null, editId = null, splitId = null, pickerOpen = false;
   let composeArea = null, areaTouched = false, dueTouched = false;
@@ -355,7 +384,7 @@ button { cursor: pointer; }
   }
 
   // ---------- escribir ----------
-  const DEFAULT_HINT = "Solo hace falta el texto. Lo demás es opcional.";
+  const DEFAULT_HINT = "Solo hace falta el texto. También puedes pegar un aviso del campus virtual.";
   function syncOpts() { document.querySelectorAll("#opts [data-area]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.area === composeArea)); }
   function updateHint() {
     const bits = [];
@@ -363,6 +392,11 @@ button { cursor: pointer; }
     if ($("due").value) bits.push("para el " + fmt($("due").value));
     $("hint").textContent = bits.length ? "Lo pego como: " + bits.join(" · ") + ". Puedes cambiarlo." : DEFAULT_HINT;
   }
+  $("text").addEventListener("paste", (e) => {
+    const raw = (e.clipboardData || window.clipboardData)?.getData("text") || "";
+    const items = parseCampus(raw);
+    if (items) { e.preventDefault(); addCampus(items); }
+  });
   $("text").addEventListener("input", () => {
     const g = guess($("text").value);
     if (!areaTouched) { composeArea = g.area; syncOpts(); }
@@ -377,6 +411,8 @@ button { cursor: pointer; }
   $("compose").addEventListener("submit", (e) => {
     e.preventDefault();
     const text = $("text").value.trim(); if (!text) { $("text").focus(); return; }
+    const campus = parseCampus(text);
+    if (campus) { addCampus(campus); return; }
     state.notes.push({ id: uid(), text, week: monday(today()), created: today(), area: composeArea, due: $("due").value || null, done: false });
     save();
     $("text").value = ""; $("due").value = ""; composeArea = null; areaTouched = false; dueTouched = false; syncOpts();
