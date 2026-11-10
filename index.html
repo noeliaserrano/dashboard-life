@@ -143,6 +143,22 @@ button { cursor: pointer; }
 .pedit input[type=date] { -webkit-appearance: none; appearance: none; display: block; }
 @media (max-width: 420px) { .pedit { grid-template-columns: 1fr auto; } .pedit input[type=date] { grid-column: 1; } }
 .x { border: 0; background: none; color: var(--faint); font-size: 16px; padding: 4px 8px; }
+.offbox { background: var(--wall-2); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+.offbox summary { cursor: pointer; font-weight: 800; }
+.offin { display: grid; gap: 12px; padding-top: 12px; }
+.offlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.offlist li { display: flex; gap: 10px; align-items: center; font-size: 15px; }
+.offlist .grow { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.offlist .k { font-size: 12px; font-weight: 800; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+.offlist .k.rest { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.offlist .k.free { color: #a8dc96; background: rgba(168,220,150,.14); }
+.offlist li.past { opacity: .5; }
+.offform { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.offform .full { grid-column: 1 / -1; }
+.offform .lbl { display: grid; gap: 4px; font-size: 13px; font-weight: 800; color: var(--muted); min-width: 0; }
+.offform input { background: var(--wall); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; height: 40px; width: 100%; min-width: 0; color: var(--ink); }
+.offform input[type=date] { -webkit-appearance: none; appearance: none; display: block; }
+.offnote { font-size: 14px; padding: 8px 12px; border-radius: 10px; background: var(--wall); }
 .method { font-size: 13px; color: var(--muted); background: var(--wall); border-radius: 10px; padding: 10px 12px; }
 .empty { border: 2px dashed var(--line); border-radius: 18px; padding: 28px 18px; text-align: center; color: var(--muted); display: grid; gap: 6px; }
 .empty b { font-family: var(--f-display); font-weight: 400; font-size: 20px; color: var(--ink); }
@@ -202,6 +218,24 @@ button { cursor: pointer; }
   <div class="chips" id="filter" hidden></div>
 
   <section id="wall" style="display:grid;gap:28px"></section>
+
+  <details class="offbox" id="offbox">
+    <summary id="offSummary">Vacaciones y festivos</summary>
+    <div class="offin">
+      <p class="small muted">Marca los días en que no puedes estudiar o en que tienes más tiempo. Reparto los pasos de tus exámenes y entregas teniéndolo en cuenta.</p>
+      <ul class="offlist" id="offList"></ul>
+      <form class="offform" id="offForm">
+        <label class="lbl">Desde<input type="date" id="offFrom" required></label>
+        <label class="lbl">Hasta (opcional)<input type="date" id="offTo"></label>
+        <label class="lbl full">Nombre (opcional)<input type="text" id="offName" placeholder="Puente de diciembre, Navidad…"></label>
+        <div class="full opts">
+          <button type="button" class="chip" data-offkind="rest" aria-pressed="true">Descanso: no me pongas nada</button>
+          <button type="button" class="chip" data-offkind="free" aria-pressed="false">Día libre: tengo más tiempo</button>
+        </div>
+        <button class="btn primary sm full" type="submit">Añadir</button>
+      </form>
+    </div>
+  </details>
 
   <section class="donebox" id="donebox"></section>
 
@@ -285,6 +319,7 @@ button { cursor: pointer; }
   try { state = JSON.parse(localStorage.getItem(KEY)); } catch (e) { state = null; }
   if (!state || state.v !== 3) state = migrateOld() || sampleState();
   if (!Array.isArray(state.plans)) state.plans = [];
+  if (!Array.isArray(state.daysOff)) state.daysOff = [];
   // Los exámenes y entregas que ya tenías como líneas pasan a tener su plan.
   function migratePlans() { if (!state.plansV) {
     state.notes.filter((n) => !n.done && n.due && n.area !== "life" && isDeadline(n.text)).forEach((n) => {
@@ -383,8 +418,11 @@ button { cursor: pointer; }
     let end = addDays(plan.due, -1);
     if (end < from) end = plan.due < from ? from : plan.due;
     const days = []; for (let d = from; d <= end; d = addDays(d, 1)) days.push(d);
+    // Los días de descanso no cuentan; los días libres cuentan doble.
+    let slots = []; days.forEach((d) => { const k = dayKind(d); const w = k === "rest" ? 0 : k === "free" ? 2 : 1; for (let i = 0; i < w; i++) slots.push(d); });
+    if (!slots.length) slots = days;
     const rest = plan.steps.filter((x) => !x.done);
-    rest.forEach((st, i) => { st.day = days[Math.floor(i * days.length / rest.length)]; });
+    rest.forEach((st, i) => { st.day = slots[Math.floor(i * slots.length / rest.length)]; });
   }
   function cleanTitle(text) {
     let t = text;
@@ -394,6 +432,8 @@ button { cursor: pointer; }
     t = t.replace(/\s+(para|el|la|de|del)\s*$/i, "").replace(/\s{2,}/g, " ").trim() || text.trim();
     return cap1(t);
   }
+  function offOn(d) { return (state.daysOff || []).filter((o) => d >= o.from && d <= (o.to || o.from)); }
+  function dayKind(d) { const os = offOn(d); return os.some((o) => o.kind === "rest") ? "rest" : os.length ? "free" : null; }
   function makePlan(title, due, area, kind) {
     kind = kind || kindOf(title);
     const plan = { id: uid(), title, due, area: area || "uni", kind, temas: kind === "Examen" ? 4 : null, created: today(), done: false,
@@ -431,7 +471,7 @@ button { cursor: pointer; }
     $("picker").innerHTML = '<span class="small muted">Si en papel usas otro color esta semana, elígelo:</span>' +
       COLORS.map((c, i) => '<button type="button" data-pick="' + i + '" style="--c:' + c.c + '" aria-label="' + c.name + '" aria-pressed="' + (i === colorIdx(w0)) + '"></button>').join("");
     $("sample").hidden = !state.sample;
-    renderToday(); renderPlans(); renderFilter(); renderSoon(); renderWall(); renderDone();
+    renderOff(); renderToday(); renderPlans(); renderFilter(); renderSoon(); renderWall(); renderDone();
   }
 
   function renderFilter() {
@@ -493,6 +533,35 @@ button { cursor: pointer; }
     }).join("");
   }
 
+  let offKind = "rest";
+  function renderOff() {
+    const list = state.daysOff.slice().sort((a, b) => a.from.localeCompare(b.from));
+    const upcoming = list.filter((o) => (o.to || o.from) >= today()).length;
+    $("offSummary").textContent = "Vacaciones y festivos" + (upcoming ? " · " + upcoming : "");
+    $("offList").innerHTML = list.map((o) => '<li class="' + ((o.to || o.from) < today() ? "past" : "") + '"><span class="grow"><b>' + cap1(o.to && o.to !== o.from ? fmt(o.from) + " – " + fmt(o.to) : fmt(o.from)) + "</b>" + (o.name ? " · " + esc(o.name) : "") +
+      '</span><span class="k ' + o.kind + '">' + (o.kind === "rest" ? "descanso" : "día libre") + '</span><button class="x" type="button" data-offdel="' + o.id + '" aria-label="Quitar">✕</button></li>').join("") || '<li class="small muted">Nada marcado todavía.</li>';
+  }
+  function replanAll() {
+    const open = state.plans.filter((p) => !p.done);
+    open.forEach((p) => distribute(p, today()));
+    return open.length;
+  }
+  $("offForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const from = $("offFrom").value; if (!from) return;
+    let to = $("offTo").value || null; if (to && to < from) to = from;
+    state.daysOff.push({ id: uid(), from, to, name: $("offName").value.trim(), kind: offKind });
+    $("offFrom").value = ""; $("offTo").value = ""; $("offName").value = "";
+    const n = replanAll(); save(); render();
+    toast(n ? "Apuntado. He vuelto a repartir " + (n === 1 ? "tu plan" : "tus " + n + " planes") + "." : "Apuntado.");
+  });
+  document.addEventListener("click", (e) => {
+    const k = e.target.closest("[data-offkind]");
+    if (k) { offKind = k.dataset.offkind; document.querySelectorAll("[data-offkind]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.offkind === offKind)); return; }
+    const d = e.target.closest("[data-offdel]");
+    if (d) { state.daysOff = state.daysOff.filter((o) => o.id !== d.dataset.offdel); const n = replanAll(); save(); render(); toast(n ? "Quitado. Planes repartidos de nuevo." : "Quitado."); }
+  });
+
   function renderToday() {
     const t = today(), open = state.plans.filter((p) => !p.done);
     $("todayBox").hidden = !open.length;
@@ -503,6 +572,8 @@ button { cursor: pointer; }
     const late = rows.filter((r) => r.st.day < t);
     const todayPending = rows.filter((r) => r.st.day === t && !r.st.done);
     let html = "<h2>Hoy toca</h2>";
+    const offT = offOn(t), kT = dayKind(t);
+    if (kT) html += '<div class="offnote">' + (kT === "rest" ? "Hoy es día de descanso" : "Hoy es día libre") + (offT[0] && offT[0].name ? " (" + esc(offT[0].name) + ")" : "") + (kT === "rest" ? ". No te he puesto nada nuevo." : ". Te he puesto algo más de lo normal.") + "</div>";
     if (!rows.length) html += '<p class="calm">Hoy no tienes pasos de exámenes ni entregas. Descansa o adelanta algo si te apetece.</p>';
     html += rows.map(({ p, st }) => {
       const k = diff(p.due);
@@ -709,7 +780,7 @@ button { cursor: pointer; }
     if (el && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); el.click(); }
   });
   $("weekBtn").onclick = () => { pickerOpen = !pickerOpen; render(); };
-  $("clearSample").onclick = () => { state = { v: 3, sample: false, weekColor: {}, notes: [], plans: [], plansV: 1 }; save(); render(); toast("Listo. Tu pared está vacía."); $("text").focus(); };
+  $("clearSample").onclick = () => { state = { v: 3, sample: false, weekColor: {}, notes: [], plans: [], plansV: 1, daysOff: [] }; save(); render(); toast("Listo. Tu pared está vacía."); $("text").focus(); };
 
   function toastUndo(msg, fn) {
     const t = $("toast"); t.innerHTML = "<span>" + esc(msg) + '</span><button type="button" id="toastUndo2">Deshacer</button>';
@@ -736,7 +807,7 @@ button { cursor: pointer; }
   $("importFile").onchange = (e) => {
     const f = e.target.files[0]; if (!f) return;
     const r = new FileReader();
-    r.onload = () => { try { const s = JSON.parse(r.result); if (s.v !== 3 || !Array.isArray(s.notes)) throw 0; state = s; if (!Array.isArray(state.plans)) state.plans = []; save(); render(); toast("Copia recuperada."); } catch (err) { toast("Ese archivo no es una copia de tu pared."); } };
+    r.onload = () => { try { const s = JSON.parse(r.result); if (s.v !== 3 || !Array.isArray(s.notes)) throw 0; state = s; if (!Array.isArray(state.plans)) state.plans = []; if (!Array.isArray(state.daysOff)) state.daysOff = []; save(); render(); toast("Copia recuperada."); } catch (err) { toast("Ese archivo no es una copia de tu pared."); } };
     r.readAsText(f); e.target.value = "";
   };
 
