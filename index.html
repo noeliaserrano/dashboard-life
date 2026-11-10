@@ -57,6 +57,8 @@ button { cursor: pointer; }
 .picker button { width: 40px; height: 40px; border-radius: 8px; border: 2px solid transparent; background: var(--c); }
 .picker button[aria-pressed="true"] { border-color: var(--ink); }
 
+.compose:not(.active) .opts, .compose:not(.active) .hint { display: none; }
+.compose:not(.active) { padding: 8px; }
 .compose { background: var(--wall-2); border: 1px solid var(--line); border-radius: 18px; padding: 12px; display: grid; gap: 10px; }
 .compose-row { display: flex; gap: 8px; }
 .compose input[type=text] { flex: 1; min-width: 0; background: var(--wall); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; font-size: 17px; height: 50px; }
@@ -220,16 +222,23 @@ nav.tabs a[aria-current="page"] { color: var(--ink); background: var(--wall-2); 
 <body>
 <div class="wrap">
 
-  <section class="view" data-view="hoy">
+  <section class="view" data-view="hoy" hidden>
     <header class="head">
       <div class="label" id="today"></div>
       <h1 id="hello">Hoy</h1>
     </header>
-  <div class="sample" id="sample" hidden>
-    <span>Estos pósits son de ejemplo, para que veas cómo queda.</span>
-    <button class="btn sm" type="button" id="clearSample">Quitar ejemplos</button>
-  </div>
   <section class="todaybox" id="todayBox" hidden></section>
+  <section class="soon" id="soon" hidden></section>
+  </section>
+
+  <section class="view" data-view="tareas">
+  <header class="head">
+    <div class="label" id="todayP"></div>
+    <h1>Tu pared</h1>
+    <p class="summary" id="summary"></p>
+    <div><button class="week-btn" type="button" id="weekBtn"></button></div>
+    <div class="picker" id="picker" hidden></div>
+  </header>
   <form class="compose" id="compose" autocomplete="off">
     <div class="compose-row">
       <input type="text" id="text" placeholder="Escribe un pósit…" aria-label="Texto del pósit" enterkeyhint="done">
@@ -244,20 +253,13 @@ nav.tabs a[aria-current="page"] { color: var(--ink); background: var(--wall-2); 
     </div>
     <p class="hint" id="hint">Escribe una tarea, o un examen o entrega con su fecha y te hago un plan. También puedes pegar un aviso del campus virtual.</p>
   </form>
-  <section class="soon" id="soon" hidden></section>
-  </section>
-
-  <section class="view" data-view="tareas" hidden>
-  <header class="head">
-    <div class="label">Tus tareas</div>
-    <h1>Tu pared</h1>
-    <p class="summary" id="summary"></p>
-    <div><button class="week-btn" type="button" id="weekBtn"></button></div>
-    <div class="picker" id="picker" hidden></div>
-  </header>
   <div class="chips" id="filter" hidden></div>
   <section id="wall" style="display:grid;gap:28px"></section>
   <section class="donebox" id="donebox"></section>
+  <div class="sample" id="sample" hidden>
+    <span>Estos pósits son de ejemplo, para que veas cómo queda.</span>
+    <button class="btn sm" type="button" id="clearSample">Quitar ejemplos</button>
+  </div>
   </section>
 
   <section class="view" data-view="estudio" hidden>
@@ -266,7 +268,7 @@ nav.tabs a[aria-current="page"] { color: var(--ink); background: var(--wall-2); 
       <h1>Exámenes y entregas</h1>
       <p class="summary">Cada uno con su plan por pasos, colocado en tus huecos libres.</p>
     </header>
-    <div class="empty" id="plansEmpty" hidden><b>Nada pendiente</b><span>Escribe en Hoy un examen o una entrega con su fecha, o pega el aviso del campus, y te hago el plan.</span></div>
+    <div class="empty" id="plansEmpty" hidden><b>Nada pendiente</b><span>Escribe en Pósits un examen o una entrega con su fecha, o pega el aviso del campus, y te hago el plan.</span></div>
   <section class="plans" id="plans" hidden></section>
   </section>
 
@@ -378,8 +380,8 @@ nav.tabs a[aria-current="page"] { color: var(--ink); background: var(--wall-2); 
 
 <nav class="tabs" aria-label="Secciones">
   <div class="in">
+    <a href="#tareas" data-tab="tareas">Pósits<span class="badge" id="bTareas"></span></a>
     <a href="#hoy" data-tab="hoy">Hoy</a>
-    <a href="#tareas" data-tab="tareas">Tareas<span class="badge" id="bTareas"></span></a>
     <a href="#estudio" data-tab="estudio">Estudio<span class="badge" id="bEstudio"></span></a>
     <a href="#agenda" data-tab="agenda">Agenda</a>
     <a href="#ajustes" data-tab="ajustes">Ajustes</a>
@@ -830,6 +832,7 @@ nav.tabs a[aria-current="page"] { color: var(--ink); background: var(--wall-2); 
     $("bEstudio").textContent = bad || (open.length || "");
     $("bEstudio").classList.toggle("warn", !!bad);
     const h = new Date().getHours();
+    $("todayP").textContent = $("today").textContent;
     $("hello").textContent = h < 13 ? "Buenos días" : h < 20 ? "Buenas tardes" : "Buenas noches";
   }
   function renderAgenda() {
@@ -838,7 +841,7 @@ nav.tabs a[aria-current="page"] { color: var(--ink); background: var(--wall-2); 
     $("evList").innerHTML = out.map(({ d, evs }) => '<li class="evday">' + (d === t ? "Hoy" : diff(d) === 1 ? "Mañana" : cap1(fmt(d))) + "</li>" +
       evs.map((ev) => '<li class="ev"><span class="hr">' + hm(toMin(ev.start)) + "–" + hm(toMin(ev.end)) + '</span><span class="grow">' + esc(ev.title) + (ev.weekly ? ' <span class="rep">· cada semana</span>' : "") +
         '</span><button class="x" type="button" data-evdel="' + ev.id + '" aria-label="Borrar cita">' + (evDelArmed === ev.id ? "¿Borrar" + (ev.weekly ? " todas" : "") + "?" : "✕") + "</button></li>").join("")).join("") ||
-      '<li class="small muted">No tienes citas en las próximas dos semanas. Pulsa «+ Cita» o escribe en Hoy algo como «dentista jueves a las 18».</li>';
+      '<li class="small muted">No tienes citas en las próximas dos semanas. Pulsa «+ Cita» o escribe en Pósits algo como «dentista jueves a las 18».</li>';
   }
   let evDelArmed = null;
   $("evToggle").onclick = () => { const f = $("evForm"); f.hidden = !f.hidden; if (!f.hidden) { $("evDate").value = $("evDate").value || today(); $("evTitle").focus(); } };
@@ -1009,6 +1012,8 @@ nav.tabs a[aria-current="page"] { color: var(--ink); background: var(--wall-2); 
     $("hint").textContent = $("due").value && tm && !willPlan ? "Lo apunto en tu agenda: " + fmt($("due").value) + " a las " + hm(toMin(tm)) + " (1 h). Lo demás se recoloca alrededor." : willPlan ? "Es un " + kindOf($("text").value).toLowerCase() + ": te haré un plan por pasos hasta el " + fmt($("due").value) + "." :
       bits.length ? "Lo pego como: " + bits.join(" · ") + ". Puedes cambiarlo." : DEFAULT_HINT;
   }
+  $("compose").addEventListener("focusin", () => $("compose").classList.add("active"));
+  $("compose").addEventListener("focusout", (e) => { if (!$("compose").contains(e.relatedTarget) && !$("text").value.trim() && !$("due").value) $("compose").classList.remove("active"); });
   $("text").addEventListener("paste", (e) => {
     const raw = (e.clipboardData || window.clipboardData)?.getData("text") || "";
     const items = parseCampus(raw);
@@ -1185,17 +1190,17 @@ nav.tabs a[aria-current="page"] { color: var(--ink); background: var(--wall-2); 
   migrateSched();
   fillSched();
   // ---------- páginas ----------
-  const VIEWS = ["hoy", "tareas", "estudio", "agenda", "ajustes"];
+  const VIEWS = ["tareas", "hoy", "estudio", "agenda", "ajustes"];
   function route() {
-    const v = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "hoy";
+    const v = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "tareas";
     document.querySelectorAll("[data-view]").forEach((x) => { x.hidden = x.dataset.view !== v; });
     document.querySelectorAll("[data-tab]").forEach((a) => a.setAttribute("aria-current", a.dataset.tab === v ? "page" : "false"));
-    $("fab").hidden = v === "hoy" || v === "ajustes";
+    $("fab").hidden = v === "tareas" || v === "ajustes";
     window.scrollTo(0, 0);
   }
   window.addEventListener("hashchange", route);
   const go = (v) => { if (location.hash.slice(1) === v) route(); else location.hash = v; };
-  $("fab").onclick = () => { go("hoy"); setTimeout(() => $("text").focus(), 50); };
+  $("fab").onclick = () => { go("tareas"); setTimeout(() => $("text").focus(), 50); };
   $("clearSample2").onclick = () => $("clearSample").click();
   route();
 
