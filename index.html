@@ -103,6 +103,7 @@ button { cursor: pointer; }
 .note input[type=date] { -webkit-appearance: none; appearance: none; display: block; height: 40px; max-width: 220px; }
 .note .lbl { font-size: 13px; font-weight: 800; color: var(--muted); display: grid; gap: 4px; }
 
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .empty { border: 2px dashed var(--line); border-radius: 18px; padding: 28px 18px; text-align: center; color: var(--muted); display: grid; gap: 6px; }
 .empty b { font-family: var(--f-display); font-weight: 400; font-size: 20px; color: var(--ink); }
 
@@ -146,12 +147,15 @@ button { cursor: pointer; }
       <button type="button" class="chip" data-area="uni" aria-pressed="false">Uni</button>
       <button type="button" class="chip" data-area="work" aria-pressed="false">Trabajo</button>
       <button type="button" class="chip" data-area="tfg" aria-pressed="false">TFG</button>
+      <button type="button" class="chip" data-area="life" aria-pressed="false">Personal</button>
       <label class="date-chip">Fecha <input type="date" id="due" aria-label="Fecha límite (opcional)"></label>
     </div>
     <p class="hint" id="hint">Solo hace falta el texto. También puedes pegar un aviso del campus virtual.</p>
   </form>
 
   <section class="soon" id="soon" hidden></section>
+
+  <div class="chips" id="filter" hidden></div>
 
   <section id="wall" style="display:grid;gap:28px"></section>
 
@@ -175,7 +179,7 @@ button { cursor: pointer; }
     { name: "amarillo", c: "#f6dc6b" }, { name: "rosa", c: "#f5a6c1" }, { name: "verde", c: "#a8dc96" },
     { name: "azul", c: "#97cbee" }, { name: "naranja", c: "#f7b46f" }, { name: "lila", c: "#c6aff0" }
   ];
-  const AREA = { uni: "Uni", work: "Trabajo", tfg: "TFG" };
+  const AREA = { uni: "Uni", work: "Trabajo", tfg: "TFG", life: "Personal" };
   const DOW = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
   const DOWL = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
   const MON = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
@@ -208,13 +212,14 @@ button { cursor: pointer; }
       notes: [
         n("Pedir cita con la tutora del TFG", w3, { area: "tfg" }),
         n("Buscar bibliografía del estado del arte", w2, { area: "tfg" }),
-        n("Renovar el seguro de la bici", w2),
+        n("Renovar el seguro de la bici", w2, { area: "life" }),
         n("Práctica 3 de Bases de Datos", w1, { area: "uni", due: addDays(today(), 3) }),
         n("Informe mensual", w1, { area: "work", due: addDays(today(), 6) }),
         n("Estudiar tema 4 de Estadística", w0, { area: "uni", due: addDays(today(), 12) }),
-        n("Comprar pienso", w0),
+        n("Pagar el recibo del gimnasio", w0, { area: "life", due: addDays(today(), 2) }),
+        n("Comprar pienso", w0, { area: "life" }),
         n("Revisar cuadro de turnos", w0, { area: "work" }),
-        n("Llamar al veterinario", w1, { done: true, doneAt: today() }),
+        n("Llamar al veterinario", w1, { area: "life", done: true, doneAt: today() }),
         n("Entregar ejercicios del tema 2", w0, { area: "uni", done: true, doneAt: today() })
       ]
     };
@@ -268,7 +273,8 @@ button { cursor: pointer; }
     if (/\btfg\b|tutor|defensa|deposito|estado del arte/.test(n)) area = "tfg";
     else if (/trabajo en grupo/.test(n)) area = "uni";
     else if (/\btrabajo\b|reunion|informe|jefe|cliente|turnos/.test(n)) area = "work";
-    else if (/examen|parcial|practica|entrega|presentacion|asignatura|\btema\b|estudiar/.test(n)) area = "uni";
+    else if (/examen|parcial|practica|entrega|presentacion|asignatura|\btema\b|estudiar|matricula/.test(n)) area = "uni";
+    else if (/\bpag(ar|o|os)\b|llamar|llamada|\bcita\b|medic|dentista|banco|recibo|factura|comprar|renovar|veterinari|seguro|hacienda|\bitv\b|\bbici\b|perro|pienso|cumple|regalo|devolver|reservar|alquiler|luz|agua|gimnasio|carrera|correos|paquete/.test(n)) area = "life";
     return { due, area };
   }
 
@@ -302,7 +308,8 @@ button { cursor: pointer; }
   }
 
   // ---------- pintar ----------
-  let openId = null, editId = null, splitId = null, pickerOpen = false;
+  let openId = null, editId = null, splitId = null, pickerOpen = false, areaFilter = "all";
+  const inFilter = (n) => areaFilter === "all" || (areaFilter === "none" ? !n.area : n.area === areaFilter);
   let composeArea = null, areaTouched = false, dueTouched = false;
 
   function render() {
@@ -320,11 +327,19 @@ button { cursor: pointer; }
     $("picker").innerHTML = '<span class="small muted">Si en papel usas otro color esta semana, elígelo:</span>' +
       COLORS.map((c, i) => '<button type="button" data-pick="' + i + '" style="--c:' + c.c + '" aria-label="' + c.name + '" aria-pressed="' + (i === colorIdx(w0)) + '"></button>').join("");
     $("sample").hidden = !state.sample;
-    renderSoon(); renderWall(); renderDone();
+    renderFilter(); renderSoon(); renderWall(); renderDone();
+  }
+
+  function renderFilter() {
+    const pending = state.notes.filter((n) => !n.done);
+    const opts = [["all", "Todo", pending.length]].concat(Object.keys(AREA).map((a) => [a, AREA[a], pending.filter((n) => n.area === a).length]))
+      .concat([["none", "Sin área", pending.filter((n) => !n.area).length]]).filter((o) => o[0] === "all" || o[2] > 0 || o[0] === areaFilter);
+    $("filter").hidden = opts.length <= 2;
+    $("filter").innerHTML = opts.map(([k, l, c]) => '<button type="button" class="chip" data-filter="' + k + '" aria-pressed="' + (areaFilter === k) + '">' + l + " · " + c + "</button>").join("");
   }
 
   function renderSoon() {
-    const list = state.notes.filter((n) => !n.done && n.due && diff(n.due) <= 10).sort((a, b) => a.due.localeCompare(b.due));
+    const list = state.notes.filter((n) => !n.done && inFilter(n) && n.due && diff(n.due) <= 10).sort((a, b) => a.due.localeCompare(b.due));
     $("soon").hidden = !list.length;
     $("soon").innerHTML = '<div class="label">Con fecha cerca</div>' + list.map((n) => {
       const k = diff(n.due);
@@ -358,8 +373,9 @@ button { cursor: pointer; }
   }
 
   function renderWall() {
-    const pending = state.notes.filter((n) => !n.done);
+    const pending = state.notes.filter((n) => !n.done && inFilter(n));
     if (!pending.length) {
+      if (areaFilter !== "all") { $("wall").innerHTML = '<div class="empty"><span>Nada pendiente aquí.</span></div>'; return; }
       $("wall").innerHTML = '<div class="empty"><b>Pared limpia</b><span>Cuando algo te ronde la cabeza, escríbelo arriba y pégalo.</span></div>';
       return;
     }
@@ -423,7 +439,7 @@ button { cursor: pointer; }
   let lastDone = null;
   const find = (id) => state.notes.find((x) => x.id === id);
   document.addEventListener("click", (e) => {
-    const el = e.target.closest("[data-open],[data-done],[data-edit],[data-split],[data-toss],[data-save],[data-cancel],[data-dosplit],[data-editarea],[data-undo],[data-pick]");
+    const el = e.target.closest("[data-open],[data-done],[data-edit],[data-split],[data-toss],[data-save],[data-cancel],[data-dosplit],[data-editarea],[data-undo],[data-pick],[data-filter]");
     if (!el) {
       if (openId && !e.target.closest(".note")) { openId = null; render(); }
       return;
@@ -464,6 +480,7 @@ button { cursor: pointer; }
     }
     else if (ds.cancel) { editId = splitId = null; render(); }
     else if (ds.undo) { const n = find(ds.undo); n.done = false; delete n.tossed; delete n.doneAt; save(); render(); toast("Vuelve a estar en la pared."); }
+    else if (ds.filter) { areaFilter = ds.filter; openId = editId = splitId = null; render(); }
     else if (ds.pick != null) { state.weekColor[monday(today())] = +ds.pick; save(); render(); }
   });
   document.addEventListener("keydown", (e) => {
