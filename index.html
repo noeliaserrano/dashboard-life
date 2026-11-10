@@ -176,6 +176,15 @@ button { cursor: pointer; }
 .dslot.study { border-color: color-mix(in srgb, #a8dc96 45%, var(--line)); }
 .dslot .check { width: 26px; height: 26px; font-size: 13px; }
 .agenda { display: grid; gap: 10px; }
+.evquick { background: var(--wall-2); border: 1px solid var(--line); border-radius: 18px; padding: 12px; display: grid; gap: 10px; }
+.evquick input[type=text] { flex: 1; min-width: 0; background: var(--wall); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; font-size: 17px; height: 50px; color: var(--ink); }
+.btn.mic { width: 50px; height: 50px; padding: 0; display: grid; place-items: center; border-radius: 12px; }
+.btn.mic.on { background: var(--warn); color: #2a1c0e; border-color: var(--warn); animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .6; } }
+.preview { background: var(--wall); border-radius: 12px; padding: 10px 12px; display: grid; gap: 4px; font-size: 15px; }
+.preview .big { font-weight: 800; font-size: 16px; }
+.preview .miss { color: var(--warn); font-size: 14px; }
+.btn[disabled] { opacity: .45; }
 .agenda-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .evform { background: var(--wall-2); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
 .evform .chk { display: flex; gap: 8px; align-items: center; font-size: 14px; font-weight: 700; color: var(--muted); }
@@ -278,7 +287,15 @@ nav.tabs a[aria-current="page"] { color: var(--ink); background: var(--wall-2); 
       <h1>Citas y días libres</h1>
     </header>
   <section class="agenda" id="agenda">
-    <div class="agenda-head"><span class="small muted">Próximas dos semanas</span><button class="btn sm" type="button" id="evToggle">+ Cita</button></div>
+    <form class="evquick" id="evQuickForm" autocomplete="off">
+      <div class="compose-row">
+        <input type="text" id="evQuick" placeholder="Dicta o escribe tu cita…" aria-label="Cita" enterkeyhint="done">
+        <button class="btn mic" type="button" id="evMic" aria-label="Dictar"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+      </div>
+      <div class="preview" id="evPreview"><span class="muted small">Por ejemplo: «dentista el jueves a las seis de la tarde», «clase de inglés todos los martes de 6 a 7», «médico el 20/11 a las 9:15 durante media hora».</span></div>
+      <div class="row-btns"><button class="btn primary sm" type="submit" id="evQuickSave" disabled>Guardar cita</button><button class="btn sm" type="button" id="evToggle">Más opciones</button></div>
+    </form>
+    <div class="agenda-head"><span class="small muted">Próximas dos semanas</span></div>
     <form class="offform evform" id="evForm" hidden>
       <label class="lbl full">Qué<input type="text" id="evTitle" placeholder="Dentista, clase de inglés, cena…" required></label>
       <label class="lbl">Día<input type="date" id="evDate" required></label>
@@ -511,6 +528,61 @@ nav.tabs a[aria-current="page"] { color: var(--ink); background: var(--wall-2); 
     if (tm) { let h = +(tm[1] || tm[3] || tm[5]); const mi = +(tm[2] || tm[4] || 0); if (/\b(tarde|noche)\b/.test(n) && h < 12) h += 12; if (h < 24 && mi < 60) time = pad(h) + ":" + pad(mi); }
     return { due, area, time };
   }
+
+  // ---------- entender una cita dictada o escrita ----------
+  const NUMW = { una: 1, uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10, once: 11, doce: 12, trece: 13, catorce: 14, quince: 15, "dieciséis": 16, dieciseis: 16, diecisiete: 17, dieciocho: 18, diecinueve: 19, veinte: 20, veinticinco: 25, treinta: 30, cuarenta: 40, "cuarenta y cinco": 45, cincuenta: 50 };
+  const WDA = "lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo";
+  function parseAppt(raw) {
+    let c = " " + raw.toLowerCase().replace(/[¿?¡!,;]/g, " ").replace(/\s+/g, " ") + " ";
+    const NW = "cuarenta y cinco|dieciséis|dieciseis|diecisiete|dieciocho|diecinueve|veinticinco|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|veinte|treinta|cuarenta|cincuenta";
+    for (let k = 0; k < 2; k++) c = c.replace(new RegExp("(\\s(?:las|la|a|de|desde|hasta|y|menos|durante|dura|sobre|hacia))\\s+(" + NW + ")(?=\\s)", "g"), (m0, pre, w) => pre + " " + NUMW[w]);
+    c = c.replace(/(\d{1,2})\s*(?:p\.?\s?m\.?)/g, "$1 pm").replace(/(\d{1,2})\s*(?:a\.?\s?m\.?)/g, "$1 am");
+    const T = "(\\d{1,2})(?:[:.](\\d{2})|\\s+y\\s+(media|cuarto|\\d{1,2}))?(?:\\s+menos\\s+(cuarto|\\d{1,2}))?";
+    const P = "(?:\\s+(?:de la|por la|de)\\s+(mañana|manana|tarde|noche|madrugada)|\\s+(am|pm)\\b)?";
+    const toM = (hh, mm, ym, menos, per, otherPer) => {
+      let h = +hh, m = mm ? +mm : ym === "media" ? 30 : ym === "cuarto" ? 15 : ym ? +ym : 0;
+      if (menos) { h -= 1; m = 60 - (menos === "cuarto" ? 15 : +menos); }
+      const pr = per || otherPer;
+      if (/tarde|noche|pm/.test(pr || "")) { if (h < 12) h += 12; }
+      else if (!pr && h >= 1 && h <= 7) h += 12;
+      return (h % 24) * 60 + m;
+    };
+    let start = null, end = null, cut = [];
+    let m = c.match(new RegExp("\\s(?:de|desde)\\s+(?:las\\s+|la\\s+)?" + T + P + "\\s+(?:a|hasta)\\s+(?:las\\s+|la\\s+)?" + T + P));
+    if (m) {
+      const p1 = m[5] || m[6], p2 = m[11] || m[12];
+      start = toM(m[1], m[2], m[3], m[4], p1, p2); end = toM(m[7], m[8], m[9], m[10], p2, p1);
+      if (end <= start && end + 720 < 24 * 60) end += 720;
+      cut.push(m[0]);
+    } else if ((m = c.match(new RegExp("\\s(?:a|sobre|hacia)\\s+(?:las|la)\\s+" + T + P))) || (m = c.match(new RegExp("\\s()" + "(\\d{1,2})[:.](\\d{2})" + P)))) {
+      if (m[1] === "") { start = toM(m[2], m[3], null, null, m[4] || m[5]); }
+      else start = toM(m[1], m[2], m[3], m[4], m[5] || m[6]);
+      cut.push(m[0]);
+    } else if ((m = c.match(/\s(?:a|al)\s+mediod[ií]a\b/))) { start = 13 * 60; cut.push(m[0]); }
+    let dur = 60, dm;
+    if ((dm = c.match(/\s(?:durante|dura|de)\s+(\d+)\s+horas?\s+y\s+media\b/))) { dur = +dm[1] * 60 + 30; cut.push(dm[0]); }
+    else if ((dm = c.match(/\s(?:durante|dura)\s+(?:1\s+)?hora\s+y\s+media\b/))) { dur = 90; cut.push(dm[0]); }
+    else if ((dm = c.match(/\s(?:durante|dura)\s+media\s+hora\b/))) { dur = 30; cut.push(dm[0]); }
+    else if ((dm = c.match(/\s(?:durante|dura)\s+(\d+)\s+horas?\b/))) { dur = +dm[1] * 60; cut.push(dm[0]); }
+    else if ((dm = c.match(/\s(?:durante|dura)\s+(\d+)\s+min(?:utos)?\b/))) { dur = +dm[1]; cut.push(dm[0]); }
+    if (start != null && end == null) end = Math.min(start + dur, 23 * 60 + 59);
+    let weekly = false, date = null, wm;
+    if ((wm = c.match(new RegExp("\\s(?:todos los|cada)\\s+(" + WDA + ")\\b")))) {
+      weekly = true; const want = WD.indexOf(norm(wm[1])); let d = today(); while (parse(d).getDay() !== want) d = addDays(d, 1); date = d; cut.push(wm[0]);
+    } else date = guess(raw).due;
+    // título: lo que queda al quitar fechas, horas y muletillas
+    let t = c; cut.forEach((x) => { t = t.replace(x, " "); });
+    t = t.replace(new RegExp("\\s(?:el|este|esta|la|el pr[oó]ximo)?\\s*(?:" + WDA + ")(?:\\s+que viene)?\\b", "g"), " ")
+      .replace(/\s(?:pasado\s+)?ma[ñn]ana\b/g, " ").replace(/\shoy\b/g, " ").replace(/\s(?:el\s+)?\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?/g, " ")
+      .replace(/\s(?:el\s+)?\d{1,2}\s+de\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\b/g, " ")
+      .replace(/\s(?:tengo|hay|apunta|ap[uú]ntame|pon|ponme|recu[eé]rdame|a[ñn]ade|guarda)\b(?:\s+que)?/g, " ")
+      .replace(/\s+/g, " ").trim().replace(/^(?:y|que|el|la|los|las|de|para|a|una|un)\s+/i, "").replace(/\s+(?:y|de|el|la|para|a|con)$/i, "").trim();
+    // recupera mayúsculas de nombres propios del texto original
+    const orig = raw.trim().split(/\s+/); t = t.split(" ").map((w) => orig.find((o) => o.toLowerCase().replace(/[.,]/g, "") === w) || w).join(" ");
+    if (start != null && !date) date = today();
+    return { title: t ? cap1(t) : "", date, start, end, weekly };
+  }
+  const hhmm = (m) => pad(Math.floor(m / 60)) + ":" + pad(m % 60);
 
   // ---------- avisos del campus virtual (Moodle) ----------
   // "Las siguientes tareas vencerán en martes, 17 de noviembre de 2026. <tarea> Vencimiento: 11:59 PM ..."
@@ -844,7 +916,48 @@ nav.tabs a[aria-current="page"] { color: var(--ink); background: var(--wall-2); 
       '<li class="small muted">No tienes citas en las próximas dos semanas. Pulsa «+ Cita» o escribe en Pósits algo como «dentista jueves a las 18».</li>';
   }
   let evDelArmed = null;
-  $("evToggle").onclick = () => { const f = $("evForm"); f.hidden = !f.hidden; if (!f.hidden) { $("evDate").value = $("evDate").value || today(); $("evTitle").focus(); } };
+  let evParsed = null;
+  function evPreview() {
+    const v = $("evQuick").value.trim();
+    if (!v) { evParsed = null; $("evQuickSave").disabled = true; $("evPreview").innerHTML = '<span class="muted small">Por ejemplo: «dentista el jueves a las seis de la tarde», «clase de inglés todos los martes de 6 a 7», «médico el 20/11 a las 9:15 durante media hora».</span>'; return; }
+    const a = parseAppt(v); evParsed = a;
+    const miss = []; if (!a.title) miss.push("qué es"); if (a.start == null) miss.push("la hora");
+    $("evQuickSave").disabled = !!miss.length;
+    $("evPreview").innerHTML = '<span class="big">' + esc(a.title || "…") + "</span>" +
+      '<span class="small">' + (a.date ? (a.weekly ? "Cada " + DOWL[parse(a.date).getDay()] + " desde el " + fmt(a.date) : cap1(fmt(a.date)) + (a.date === today() ? " (hoy)" : diff(a.date) === 1 ? " (mañana)" : "")) : "Sin día") +
+      (a.start != null ? " · " + hm(a.start) + "–" + hm(a.end) : "") + "</span>" +
+      (miss.length ? '<span class="miss">Me falta ' + miss.join(" y ") + ".</span>" : "");
+  }
+  $("evQuick").addEventListener("input", evPreview);
+  $("evQuickForm").addEventListener("submit", (e) => {
+    e.preventDefault(); evPreview(); const a = evParsed;
+    if (!a || !a.title || a.start == null || !a.date) return;
+    state.events.push({ id: uid(), title: a.title, date: a.date, start: hhmm(a.start), end: hhmm(a.end), weekly: a.weekly, until: null });
+    $("evQuick").value = ""; evPreview();
+    scheduleAll(today()); save(); render();
+    toast((a.weekly ? "Cita semanal guardada" : "Cita guardada el " + fmt(a.date)) + " a las " + hm(a.start) + ". He recolocado tu horario.");
+  });
+  // Dictado: usa el reconocimiento de voz del navegador si existe; si no, el micrófono del teclado.
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let rec = null, recOn = false;
+  $("evMic").onclick = () => {
+    if (!SR) { $("evQuick").focus(); toast("Pulsa el micrófono del teclado para dictar."); return; }
+    if (recOn && rec) { rec.stop(); return; }
+    try {
+      rec = new SR(); rec.lang = "es-ES"; rec.interimResults = true; rec.continuous = false;
+      const base = $("evQuick").value.trim();
+      rec.onresult = (ev) => { let txt = ""; for (let i = 0; i < ev.results.length; i++) txt += ev.results[i][0].transcript; $("evQuick").value = (base ? base + " " : "") + txt.trim(); evPreview(); };
+      rec.onend = () => { recOn = false; $("evMic").classList.remove("on"); };
+      rec.onerror = (ev) => { recOn = false; $("evMic").classList.remove("on"); toast(ev.error === "not-allowed" ? "No tengo permiso para el micrófono. Usa el del teclado." : "No te he entendido. Prueba otra vez o usa el micrófono del teclado."); };
+      rec.start(); recOn = true; $("evMic").classList.add("on");
+    } catch (err) { recOn = false; $("evMic").classList.remove("on"); $("evQuick").focus(); toast("Pulsa el micrófono del teclado para dictar."); }
+  };
+  $("evToggle").onclick = () => {
+    if (evParsed && $("evForm").hidden) {
+      $("evTitle").value = evParsed.title || ""; if (evParsed.date) $("evDate").value = evParsed.date;
+      if (evParsed.start != null) { $("evStart").value = hhmm(evParsed.start); $("evEnd").value = hhmm(evParsed.end); }
+      $("evWeekly").checked = !!evParsed.weekly; $("evUntilWrap").hidden = !evParsed.weekly;
+    } const f = $("evForm"); f.hidden = !f.hidden; if (!f.hidden) { $("evDate").value = $("evDate").value || today(); $("evTitle").focus(); } };
   $("evCancel").onclick = () => { $("evForm").hidden = true; };
   $("evWeekly").onchange = () => { $("evUntilWrap").hidden = !$("evWeekly").checked; };
   $("evStart").onchange = () => { if (!$("evEnd").value || $("evEnd").value <= $("evStart").value) $("evEnd").value = hm(Math.min(toMin($("evStart").value) + 60, 23 * 60 + 59)).padStart(5, "0"); };
@@ -1046,7 +1159,9 @@ nav.tabs a[aria-current="page"] { color: var(--ink); background: var(--wall-2); 
     }
     const tmv = guess(text).time;
     if (dueV && tmv) {
-      state.events.push({ id: uid(), title: cleanTitle(text), date: dueV, start: tmv, end: hm(Math.min(toMin(tmv) + 60, 23 * 60 + 59)).padStart(5, "0"), weekly: false, until: null });
+      const a = parseAppt(text);
+      const st0 = a.start != null ? a.start : toMin(tmv), en0 = a.start != null ? a.end : Math.min(st0 + 60, 23 * 60 + 59);
+      state.events.push({ id: uid(), title: a.title || cleanTitle(text), date: dueV, start: hhmm(st0), end: hhmm(en0), weekly: a.weekly, until: null });
       scheduleAll(today()); save();
       $("text").value = ""; $("due").value = ""; composeArea = null; areaTouched = false; dueTouched = false; syncOpts();
       $("hint").textContent = DEFAULT_HINT; render();
