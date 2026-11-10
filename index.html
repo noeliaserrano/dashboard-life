@@ -158,6 +158,20 @@ button { cursor: pointer; }
 .offform .lbl { display: grid; gap: 4px; font-size: 13px; font-weight: 800; color: var(--muted); min-width: 0; }
 .offform input { background: var(--wall); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; height: 40px; width: 100%; min-width: 0; color: var(--ink); }
 .offform input[type=date] { -webkit-appearance: none; appearance: none; display: block; }
+.sgroup { display: grid; gap: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.sgroup h3 { margin: 0; font-size: 15px; font-weight: 800; }
+.daypick { display: flex; gap: 6px; flex-wrap: wrap; }
+.daypick button { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line); background: none; font-weight: 800; color: var(--muted); }
+.daypick button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.offform input[type=time] { -webkit-appearance: none; appearance: none; display: block; }
+.offlist .k.short { color: #97cbee; background: rgba(151,203,238,.14); }
+.dayline { display: flex; gap: 8px; flex-wrap: wrap; }
+.dslot { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 12px; background: var(--wall); border: 1px solid var(--line); font-size: 14px; }
+.dslot .hr { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.dslot.tick { padding-left: 6px; }
+.dslot.done { opacity: .6; } .dslot.done .w { text-decoration: line-through; }
+.dslot.study { border-color: color-mix(in srgb, #a8dc96 45%, var(--line)); }
+.dslot .check { width: 26px; height: 26px; font-size: 13px; }
 .offnote { font-size: 14px; padding: 8px 12px; border-radius: 10px; background: var(--wall); }
 .method { font-size: 13px; color: var(--muted); background: var(--wall); border-radius: 10px; padding: 10px 12px; }
 .empty { border: 2px dashed var(--line); border-radius: 18px; padding: 28px 18px; text-align: center; color: var(--muted); display: grid; gap: 6px; }
@@ -219,6 +233,49 @@ button { cursor: pointer; }
 
   <section id="wall" style="display:grid;gap:28px"></section>
 
+  <details class="offbox" id="schedBox">
+    <summary>Tu horario: trabajo, paseo y gimnasio</summary>
+    <div class="offin">
+      <p class="small muted">Con esto coloco el paseo y el gimnasio cada día y te digo el mejor hueco para estudiar. Los días sin trabajo cuentan como días con más tiempo para tus planes.</p>
+      <div class="sgroup">
+        <h3>Trabajo</h3>
+        <div class="daypick" id="sWorkDays"></div>
+        <div class="offform">
+          <label class="lbl">Entrada<input type="time" id="sWorkStart"></label>
+          <label class="lbl">Salida<input type="time" id="sWorkEnd"></label>
+          <label class="lbl">Comida a las<input type="time" id="sLunch"></label>
+          <label class="lbl">Minutos de comida<input type="number" id="sLunchMin" min="0" step="5"></label>
+        </div>
+      </div>
+      <div class="sgroup">
+        <h3>Jornada reducida</h3>
+        <p class="xs muted">Todas las semanas estos días. Para una víspera de festivo suelta, añádela abajo en Vacaciones y festivos.</p>
+        <div class="daypick" id="sShortDays"></div>
+        <div class="offform"><label class="lbl">Salida en jornada reducida<input type="time" id="sShortEnd"></label></div>
+      </div>
+      <div class="sgroup">
+        <h3>Paseo con el perro</h3>
+        <div class="offform">
+          <label class="lbl">Nombre del perro<input type="text" id="sDogName" placeholder="Opcional"></label>
+          <label class="lbl">Duración (mín. 60 min)<input type="number" id="sDogMin" min="60" step="15"></label>
+        </div>
+        <div class="opts"><button type="button" class="chip" data-dogmode="auto">Automático: al salir del trabajo</button><button type="button" class="chip" data-dogmode="fixed">A una hora fija</button></div>
+        <div class="offform" id="sDogFixed"><label class="lbl">Hora fija<input type="time" id="sDogTime"></label></div>
+      </div>
+      <div class="sgroup">
+        <h3>Gimnasio</h3>
+        <div class="daypick" id="sGymDays"></div>
+        <div class="offform"><label class="lbl">Duración (min)<input type="number" id="sGymMin" min="15" step="15"></label></div>
+        <div class="opts"><button type="button" class="chip" data-gymmode="auto">Automático: después del paseo</button><button type="button" class="chip" data-gymmode="fixed">A una hora fija</button></div>
+        <div class="offform" id="sGymFixed"><label class="lbl">Hora fija<input type="time" id="sGymTime"></label></div>
+      </div>
+      <div class="sgroup">
+        <h3>Final del día</h3>
+        <div class="offform"><label class="lbl">No me pongas nada después de las<input type="time" id="sDayEnd"></label></div>
+      </div>
+    </div>
+  </details>
+
   <details class="offbox" id="offbox">
     <summary id="offSummary">Vacaciones y festivos</summary>
     <div class="offin">
@@ -231,6 +288,7 @@ button { cursor: pointer; }
         <div class="full opts">
           <button type="button" class="chip" data-offkind="rest" aria-pressed="true">Descanso: no me pongas nada</button>
           <button type="button" class="chip" data-offkind="free" aria-pressed="false">Día libre: tengo más tiempo</button>
+          <button type="button" class="chip" data-offkind="short" aria-pressed="false">Jornada reducida (víspera)</button>
         </div>
         <button class="btn primary sm full" type="submit">Añadir</button>
       </form>
@@ -419,7 +477,7 @@ button { cursor: pointer; }
     if (end < from) end = plan.due < from ? from : plan.due;
     const days = []; for (let d = from; d <= end; d = addDays(d, 1)) days.push(d);
     // Los días de descanso no cuentan; los días libres cuentan doble.
-    let slots = []; days.forEach((d) => { const k = dayKind(d); const w = k === "rest" ? 0 : k === "free" ? 2 : 1; for (let i = 0; i < w; i++) slots.push(d); });
+    let slots = []; days.forEach((d) => { const k = dayKind(d); const w = k === "rest" ? 0 : (k === "free" || !workOn(d)) ? 2 : 1; for (let i = 0; i < w; i++) slots.push(d); });
     if (!slots.length) slots = days;
     const rest = plan.steps.filter((x) => !x.done);
     rest.forEach((st, i) => { st.day = slots[Math.floor(i * slots.length / rest.length)]; });
@@ -433,7 +491,60 @@ button { cursor: pointer; }
     return cap1(t);
   }
   function offOn(d) { return (state.daysOff || []).filter((o) => d >= o.from && d <= (o.to || o.from)); }
-  function dayKind(d) { const os = offOn(d); return os.some((o) => o.kind === "rest") ? "rest" : os.length ? "free" : null; }
+  function dayKind(d) { const os = offOn(d).filter((o) => o.kind !== "short"); return os.some((o) => o.kind === "rest") ? "rest" : os.length ? "free" : null; }
+
+  // ---------- tu horario ----------
+  const toMin = (t) => { const [h, m] = String(t || "0:0").split(":").map(Number); return h * 60 + (m || 0); };
+  const hm = (m) => Math.floor(m / 60) + ":" + pad(m % 60);
+  const SC = () => state.sched;
+  const workOn = (d) => SC().work.days.includes(parse(d).getDay()) && !dayKind(d);
+  const isShort = (d) => workOn(d) && (SC().work.shortDays.includes(parse(d).getDay()) || offOn(d).some((o) => o.kind === "short"));
+  const gymOn = (d) => SC().gym.days.includes(parse(d).getDay()) && dayKind(d) !== "rest";
+  function dayBlocks(d) {
+    const s = SC(), out = [];
+    let free = 10 * 60; // día sin trabajo: empieza a contar a las 10:00
+    if (workOn(d)) {
+      const end = toMin(isShort(d) ? s.work.shortEnd : s.work.end);
+      out.push({ t: "work", s: toMin(s.work.start), e: end, short: isShort(d) });
+      free = end;
+    }
+    const dogMin = Math.max(60, +s.dog.min || 60);
+    const dogS = s.dog.mode === "fixed" ? toMin(s.dog.time) : free + 30;
+    out.push({ t: "dog", s: dogS, e: dogS + dogMin });
+    if (gymOn(d)) {
+      const gymS = s.gym.mode === "fixed" ? toMin(s.gym.time) : dogS + dogMin + 30;
+      out.push({ t: "gym", s: gymS, e: gymS + (+s.gym.min || 60) });
+    }
+    return out.sort((a, b) => a.s - b.s);
+  }
+  function bestGap(d) {
+    const bl = dayBlocks(d), work = bl.find((b) => b.t === "work");
+    let start = work ? work.e : 10 * 60; const end = toMin(SC().dayEnd);
+    let best = null;
+    bl.filter((b) => b.t !== "work" && b.e > start).forEach((b) => { if (b.s - start >= 30 && (!best || b.s - start > best[1] - best[0])) best = [start, Math.min(b.s, end)]; start = Math.max(start, b.e); });
+    if (end - start >= 30 && (!best || end - start > best[1] - best[0])) best = [start, end];
+    return best && best[1] - best[0] >= 30 ? best : null;
+  }
+  function defaultSched() {
+    return { work: { days: [1, 2, 3, 4, 5], start: "08:00", end: "17:00", lunch: "14:00", lunchMin: 30, shortDays: [5], shortEnd: "15:00" },
+      dog: { min: 60, mode: "auto", time: "17:30", name: "" }, gym: { days: [1, 3, 5], min: 60, mode: "auto", time: "19:00" }, dayEnd: "22:00" };
+  }
+  function migrateSched() {
+    if (state.sched) return;
+    const sc = defaultSched();
+    try {
+      const old = JSON.parse(localStorage.getItem(OLD_KEY));
+      const w = old && old.settings && old.settings.work;
+      if (w && !old.sample) {
+        Object.assign(sc.work, { days: w.days || sc.work.days, start: w.start || sc.work.start, end: w.end || sc.work.end, lunch: w.lunch || sc.work.lunch, lunchMin: w.lunchMin ?? sc.work.lunchMin, shortDays: w.shortDays || sc.work.shortDays, shortEnd: w.shortEnd || sc.work.shortEnd });
+        (w.shortDates || []).forEach((d) => state.daysOff.push({ id: uid(), from: d, to: null, name: "", kind: "short" }));
+        const g = old.settings.gym; if (g) Object.assign(sc.gym, { days: g.days || sc.gym.days, min: g.min || 60 });
+        if (old.settings.dog) sc.dog.min = Math.max(60, old.settings.dog.min || 60);
+        sc.dog.name = old.dogName || "";
+      }
+    } catch (e) {}
+    state.sched = sc; save();
+  }
   function makePlan(title, due, area, kind) {
     kind = kind || kindOf(title);
     const plan = { id: uid(), title, due, area: area || "uni", kind, temas: kind === "Examen" ? 4 : null, created: today(), done: false,
@@ -539,7 +650,7 @@ button { cursor: pointer; }
     const upcoming = list.filter((o) => (o.to || o.from) >= today()).length;
     $("offSummary").textContent = "Vacaciones y festivos" + (upcoming ? " · " + upcoming : "");
     $("offList").innerHTML = list.map((o) => '<li class="' + ((o.to || o.from) < today() ? "past" : "") + '"><span class="grow"><b>' + cap1(o.to && o.to !== o.from ? fmt(o.from) + " – " + fmt(o.to) : fmt(o.from)) + "</b>" + (o.name ? " · " + esc(o.name) : "") +
-      '</span><span class="k ' + o.kind + '">' + (o.kind === "rest" ? "descanso" : "día libre") + '</span><button class="x" type="button" data-offdel="' + o.id + '" aria-label="Quitar">✕</button></li>').join("") || '<li class="small muted">Nada marcado todavía.</li>';
+      '</span><span class="k ' + o.kind + '">' + (o.kind === "rest" ? "descanso" : o.kind === "short" ? "jornada reducida" : "día libre") + '</span><button class="x" type="button" data-offdel="' + o.id + '" aria-label="Quitar">✕</button></li>').join("") || '<li class="small muted">Nada marcado todavía.</li>';
   }
   function replanAll() {
     const open = state.plans.filter((p) => !p.done);
@@ -562,19 +673,32 @@ button { cursor: pointer; }
     if (d) { state.daysOff = state.daysOff.filter((o) => o.id !== d.dataset.offdel); const n = replanAll(); save(); render(); toast(n ? "Quitado. Planes repartidos de nuevo." : "Quitado."); }
   });
 
+  function dayLineHTML(d) {
+    const rt = (state.routines || {})[d] || {}, s = SC(), out = [];
+    dayBlocks(d).forEach((b) => {
+      const h = hm(b.s) + "–" + hm(b.e);
+      if (b.t === "work") out.push('<span class="dslot"><span class="w">' + (b.short ? "Jornada reducida" : "Trabajo") + '</span><span class="hr">' + h + "</span></span>");
+      else out.push('<span class="dslot tick' + (rt[b.t] ? " done" : "") + '"><button class="check" type="button" data-rt="' + b.t + '" aria-pressed="' + !!rt[b.t] + '" aria-label="Hecho">' + (rt[b.t] ? "✓" : "") + '</button><span class="w">' + (b.t === "dog" ? "Paseo" + (s.dog.name ? " con " + esc(s.dog.name) : "") : "Gimnasio") + '</span><span class="hr">' + h + "</span></span>");
+    });
+    const g = bestGap(d);
+    if (g && dayKind(d) !== "rest") out.push('<span class="dslot study"><span class="w">Hueco para estudiar</span><span class="hr">' + hm(g[0]) + "–" + hm(g[1]) + "</span></span>");
+    const wk = monday(d); let gymDone = 0, gymPlan = 0;
+    for (let i = 0; i < 7; i++) { const x = addDays(wk, i); if (gymOn(x)) { gymPlan++; if (((state.routines || {})[x] || {}).gym) gymDone++; } }
+    return '<div class="dayline">' + out.join("") + "</div>" + (gymPlan ? '<p class="xs muted">Gimnasio esta semana: ' + gymDone + " de " + gymPlan + "</p>" : "");
+  }
+
   function renderToday() {
     const t = today(), open = state.plans.filter((p) => !p.done);
-    $("todayBox").hidden = !open.length;
-    if (!open.length) return;
+    $("todayBox").hidden = false;
     const rows = [];
     open.forEach((p) => p.steps.forEach((st) => { if (st.day && (st.day < t ? !st.done : st.day === t)) rows.push({ p, st }); }));
     rows.sort((a, b) => a.st.day.localeCompare(b.st.day) || a.p.due.localeCompare(b.p.due));
     const late = rows.filter((r) => r.st.day < t);
     const todayPending = rows.filter((r) => r.st.day === t && !r.st.done);
-    let html = "<h2>Hoy toca</h2>";
+    let html = "<h2>Hoy toca</h2>" + dayLineHTML(t);
     const offT = offOn(t), kT = dayKind(t);
     if (kT) html += '<div class="offnote">' + (kT === "rest" ? "Hoy es día de descanso" : "Hoy es día libre") + (offT[0] && offT[0].name ? " (" + esc(offT[0].name) + ")" : "") + (kT === "rest" ? ". No te he puesto nada nuevo." : ". Te he puesto algo más de lo normal.") + "</div>";
-    if (!rows.length) html += '<p class="calm">Hoy no tienes pasos de exámenes ni entregas. Descansa o adelanta algo si te apetece.</p>';
+    if (!rows.length) html += '<p class="calm">' + (open.length ? "Hoy no tienes pasos de exámenes ni entregas. Descansa o adelanta algo si te apetece." : "Cuando apuntes un examen o una entrega con fecha, aquí verás lo que toca cada día.") + "</p>";
     html += rows.map(({ p, st }) => {
       const k = diff(p.due);
       return '<div class="steprow' + (st.day < t ? " late" : "") + (st.done ? " done" : "") + '"><button class="check" type="button" data-step="' + p.id + ":" + st.id + '" aria-pressed="' + st.done + '" aria-label="Hecho">' + (st.done ? "✓" : "") + "</button>" +
@@ -780,7 +904,7 @@ button { cursor: pointer; }
     if (el && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); el.click(); }
   });
   $("weekBtn").onclick = () => { pickerOpen = !pickerOpen; render(); };
-  $("clearSample").onclick = () => { state = { v: 3, sample: false, weekColor: {}, notes: [], plans: [], plansV: 1, daysOff: [] }; save(); render(); toast("Listo. Tu pared está vacía."); $("text").focus(); };
+  $("clearSample").onclick = () => { state = { v: 3, sample: false, weekColor: {}, notes: [], plans: [], plansV: 1, daysOff: [], sched: state.sched, routines: {} }; save(); render(); toast("Listo. Tu pared está vacía."); $("text").focus(); };
 
   function toastUndo(msg, fn) {
     const t = $("toast"); t.innerHTML = "<span>" + esc(msg) + '</span><button type="button" id="toastUndo2">Deshacer</button>';
@@ -807,7 +931,7 @@ button { cursor: pointer; }
   $("importFile").onchange = (e) => {
     const f = e.target.files[0]; if (!f) return;
     const r = new FileReader();
-    r.onload = () => { try { const s = JSON.parse(r.result); if (s.v !== 3 || !Array.isArray(s.notes)) throw 0; state = s; if (!Array.isArray(state.plans)) state.plans = []; if (!Array.isArray(state.daysOff)) state.daysOff = []; save(); render(); toast("Copia recuperada."); } catch (err) { toast("Ese archivo no es una copia de tu pared."); } };
+    r.onload = () => { try { const s = JSON.parse(r.result); if (s.v !== 3 || !Array.isArray(s.notes)) throw 0; state = s; if (!Array.isArray(state.plans)) state.plans = []; if (!Array.isArray(state.daysOff)) state.daysOff = []; if (!state.sched) state.sched = defaultSched(); save(); fillSched(); render(); toast("Copia recuperada."); } catch (err) { toast("Ese archivo no es una copia de tu pared."); } };
     r.readAsText(f); e.target.value = "";
   };
 
@@ -816,6 +940,44 @@ button { cursor: pointer; }
   setInterval(refresh, 60000);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
 
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-rt]"); if (!b) return;
+    const t = today(); state.routines = state.routines || {}; state.routines[t] = state.routines[t] || {};
+    const k = b.dataset.rt; state.routines[t][k] = !state.routines[t][k]; save(); render();
+    if (state.routines[t][k]) toast(k === "dog" ? "Paseo hecho. Bien por los dos." : "Gimnasio hecho. ¡Bien!");
+  });
+  function daypick(el, arr) {
+    const L = [[1, "L"], [2, "M"], [3, "X"], [4, "J"], [5, "V"], [6, "S"], [0, "D"]];
+    el.innerHTML = L.map(([n, l]) => '<button type="button" data-d="' + n + '" aria-pressed="' + arr.includes(n) + '" aria-label="' + DOWL[n] + '">' + l + "</button>").join("");
+    el.onclick = (e) => { const b = e.target.closest("[data-d]"); if (!b) return; const n = +b.dataset.d, i = arr.indexOf(n); if (i >= 0) arr.splice(i, 1); else arr.push(n); b.setAttribute("aria-pressed", arr.includes(n)); schedChanged(); };
+  }
+  function schedChanged() { state.plans.filter((p) => !p.done).forEach((p) => distribute(p, today())); save(); render(); }
+  function fillSched() {
+    const s = SC();
+    const bind = (id, get, set) => { const el = $(id); el.value = get(); el.onchange = () => { set(el.value); schedChanged(); }; };
+    bind("sWorkStart", () => s.work.start, (v) => { s.work.start = v || "08:00"; });
+    bind("sWorkEnd", () => s.work.end, (v) => { s.work.end = v || "17:00"; });
+    bind("sLunch", () => s.work.lunch, (v) => { s.work.lunch = v || "14:00"; });
+    bind("sLunchMin", () => s.work.lunchMin, (v) => { s.work.lunchMin = Math.max(0, +v || 0); });
+    bind("sShortEnd", () => s.work.shortEnd, (v) => { s.work.shortEnd = v || "15:00"; });
+    bind("sDogName", () => s.dog.name || "", (v) => { s.dog.name = v.trim(); });
+    bind("sDogMin", () => s.dog.min, (v) => { s.dog.min = Math.max(60, +v || 60); $("sDogMin").value = s.dog.min; });
+    bind("sDogTime", () => s.dog.time, (v) => { s.dog.time = v || "17:30"; });
+    bind("sGymMin", () => s.gym.min, (v) => { s.gym.min = Math.max(15, +v || 60); });
+    bind("sGymTime", () => s.gym.time, (v) => { s.gym.time = v || "19:00"; });
+    bind("sDayEnd", () => s.dayEnd, (v) => { s.dayEnd = v || "22:00"; });
+    daypick($("sWorkDays"), s.work.days); daypick($("sShortDays"), s.work.shortDays); daypick($("sGymDays"), s.gym.days);
+    const modes = () => {
+      document.querySelectorAll("[data-dogmode]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.dogmode === s.dog.mode));
+      document.querySelectorAll("[data-gymmode]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.gymmode === s.gym.mode));
+      $("sDogFixed").hidden = s.dog.mode !== "fixed"; $("sGymFixed").hidden = s.gym.mode !== "fixed";
+    };
+    document.querySelectorAll("[data-dogmode]").forEach((b) => { b.onclick = () => { s.dog.mode = b.dataset.dogmode; modes(); schedChanged(); }; });
+    document.querySelectorAll("[data-gymmode]").forEach((b) => { b.onclick = () => { s.gym.mode = b.dataset.gymmode; modes(); schedChanged(); }; });
+    modes();
+  }
+  migrateSched();
+  fillSched();
   migratePlans();
   render();
 })();
