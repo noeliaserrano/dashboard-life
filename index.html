@@ -110,6 +110,7 @@ button { cursor: pointer; }
 .todaybox h2 { font-size: 21px; }
 .steprow { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; }
 .steprow .what { font-weight: 700; overflow-wrap: anywhere; }
+.steprow .tm { color: var(--accent); font-variant-numeric: tabular-nums; margin-right: 2px; }
 .steprow .why { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
 .steprow.late .why b { color: var(--warn); }
 .steprow.done .what { text-decoration: line-through; color: var(--muted); }
@@ -138,10 +139,10 @@ button { cursor: pointer; }
 .pstep .d { font-size: 12px; font-weight: 800; color: var(--muted); white-space: nowrap; }
 .pstep .d.today { color: var(--accent); } .pstep .d.late { color: var(--warn); }
 .pstep.done .n { text-decoration: line-through; color: var(--muted); }
-.pedit { display: grid; grid-template-columns: 1fr 150px auto; gap: 6px; align-items: center; }
+.pedit { display: grid; grid-template-columns: 1fr 70px 150px auto; gap: 6px; align-items: center; }
 .pedit input { background: var(--wall); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; height: 38px; min-width: 0; width: 100%; }
 .pedit input[type=date] { -webkit-appearance: none; appearance: none; display: block; }
-@media (max-width: 420px) { .pedit { grid-template-columns: 1fr auto; } .pedit input[type=date] { grid-column: 1; } }
+@media (max-width: 480px) { .pedit { grid-template-columns: 70px 1fr auto; padding-bottom: 6px; border-bottom: 1px dashed var(--line); } .pedit input[type=text] { grid-column: 1 / -1; } }
 .x { border: 0; background: none; color: var(--faint); font-size: 16px; padding: 4px 8px; }
 .offbox { background: var(--wall-2); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
 .offbox summary { cursor: pointer; font-weight: 800; }
@@ -270,8 +271,13 @@ button { cursor: pointer; }
         <div class="offform" id="sGymFixed"><label class="lbl">Hora fija<input type="time" id="sGymTime"></label></div>
       </div>
       <div class="sgroup">
-        <h3>Final del día</h3>
-        <div class="offform"><label class="lbl">No me pongas nada después de las<input type="time" id="sDayEnd"></label></div>
+        <h3>Estudio</h3>
+        <p class="xs muted">Como máximo te pongo esto al día, aunque te quede más hueco. Descansar también cuenta.</p>
+        <div class="offform">
+          <label class="lbl">Máximo con trabajo (min)<input type="number" id="sCapWork" min="0" step="15"></label>
+          <label class="lbl">Máximo día libre (min)<input type="number" id="sCapFree" min="0" step="15"></label>
+          <label class="lbl">No me pongas nada después de las<input type="time" id="sDayEnd"></label>
+        </div>
       </div>
     </div>
   </details>
@@ -383,6 +389,7 @@ button { cursor: pointer; }
     state.notes.filter((n) => !n.done && n.due && n.area !== "life" && isDeadline(n.text)).forEach((n) => {
       const p = makePlan(n.text, n.due, n.area || "uni"); state.plans.push(p); n.done = true; n.tossed = true; n.doneAt = today();
     });
+    scheduleAll(today());
     if (state.sample && state.plans.length) { const st = state.plans.sort((x, y) => x.due.localeCompare(y.due))[0].steps[0]; st.day = addDays(today(), -1); }
     state.plansV = 1; save();
   } }
@@ -449,6 +456,7 @@ button { cursor: pointer; }
   function addCampus(items) {
     const w0 = monday(today());
     items.forEach((it) => { const p = makePlan(it.text, it.due, "uni"); state.plans.push(p); openPlan = p.id; });
+    scheduleAll(today());
     save(); $("text").value = ""; $("hint").textContent = DEFAULT_HINT; render();
     toast(items.length === 1 ? "Te he hecho un plan hasta el " + fmt(items[0].due) + "." : "Te he hecho " + items.length + " planes desde el aviso del campus.");
   }
@@ -464,24 +472,75 @@ button { cursor: pointer; }
   };
   function template(kind, temas) {
     if (kind === "Examen") {
-      const t = []; for (let i = 1; i <= (temas || 4); i++) t.push("Estudiar tema " + i + " (esquema + preguntas)");
-      return ["Organizar apuntes y ver qué entra"].concat(t, ["Hacer ejercicios o exámenes de otros años", "Repaso final"]);
+      const t = []; for (let i = 1; i <= (temas || 4); i++) t.push(["Estudiar tema " + i + " (esquema + preguntas)", 90]);
+      return [["Organizar apuntes y ver qué entra", 30]].concat(t, [["Hacer ejercicios o exámenes de otros años", 120], ["Repaso final", 90]]);
     }
-    if (kind === "Presentación") return ["Preparar el guion", "Hacer las diapositivas", "Ensayar en voz alta", "Ensayo final"];
-    return ["Leer el enunciado y apuntar dudas", "Hacer la primera parte", "Hacer la segunda parte", "Revisar y entregar"];
+    if (kind === "Presentación") return [["Preparar el guion", 60], ["Hacer las diapositivas", 120], ["Ensayar en voz alta", 45], ["Ensayo final", 30]];
+    return [["Leer el enunciado y apuntar dudas", 30], ["Hacer la primera parte", 90], ["Hacer la segunda parte", 90], ["Revisar y entregar", 45]];
   }
-  // Reparte los pasos pendientes de forma uniforme entre "from" y el día antes de la fecha.
-  function distribute(plan, from) {
-    const t = today(); if (from < t) from = t;
-    let end = addDays(plan.due, -1);
-    if (end < from) end = plan.due < from ? from : plan.due;
-    const days = []; for (let d = from; d <= end; d = addDays(d, 1)) days.push(d);
-    // Los días de descanso no cuentan; los días libres cuentan doble.
-    let slots = []; days.forEach((d) => { const k = dayKind(d); const w = k === "rest" ? 0 : (k === "free" || !workOn(d)) ? 2 : 1; for (let i = 0; i < w; i++) slots.push(d); });
-    if (!slots.length) slots = days;
-    const rest = plan.steps.filter((x) => !x.done);
-    rest.forEach((st, i) => { st.day = slots[Math.floor(i * slots.length / rest.length)]; });
+  const stepsFor = (kind, temas) => template(kind, temas).map(([n, m]) => ({ id: uid(), name: n, dur: m, day: null, start: null, done: false }));
+  function guessDur(name) {
+    const n = norm(name || "");
+    return /ejercicio|examenes|diapositiva/.test(n) ? 120 : /tema|repaso|parte|redact|hacer/.test(n) ? 90 : /guion/.test(n) ? 60 : /revis/.test(n) ? 45 : /organiz|leer|ensay|dudas/.test(n) ? 30 : 60;
   }
+  const durOf = (st) => st.dur || guessDur(st.name);
+  const fdur = (m) => { m = Math.round(m / 5) * 5; return m < 60 ? m + " min" : Math.floor(m / 60) + " h" + (m % 60 ? " " + m % 60 : ""); };
+  // Coloca todos los pasos pendientes en tus huecos libres reales, por orden de entrega,
+  // respetando el máximo de estudio de cada día. Los pasos que cambiaste de día a mano se respetan.
+  function freeIntervals(d) {
+    if (dayKind(d) === "rest") return [];
+    const bl = dayBlocks(d), work = bl.find((b) => b.t === "work");
+    let iv = [[work ? work.e : 9 * 60 + 30, toMin(SC().dayEnd)]];
+    bl.filter((b) => b.t !== "work").forEach((b) => {
+      iv = iv.flatMap(([a, z]) => b.e <= a || b.s >= z ? [[a, z]] : [[a, b.s], [b.e, z]]);
+    });
+    return iv.filter(([a, z]) => z - a >= 15);
+  }
+  const capOf = (d) => dayKind(d) === "rest" ? 0 : workOn(d) ? +SC().capWork : +SC().capFree;
+  function scheduleAll(from) {
+    const t = today(); if (!from || from < t) from = t;
+    const open = state.plans.filter((p) => !p.done).sort((a, b) => a.due.localeCompare(b.due));
+    if (!open.length) return;
+    const queue = [];
+    open.forEach((p) => {
+      const rest = p.steps.filter((x) => !x.done);
+      const total = rest.reduce((a, x) => a + durOf(x), 0);
+      const earliest = addDays(p.due, -Math.max(10, Math.ceil(total / 90 * 2)));
+      rest.forEach((st) => {
+        st.dur = durOf(st);
+        if (st.pinned && st.day && st.day >= from) return;
+        st.pinned = false; st.day = null; st.start = null;
+        queue.push({ p, st, earliest });
+      });
+    });
+    const horizon = open[open.length - 1].due;
+    const now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes();
+    for (let d = from; d <= horizon; d = addDays(d, 1)) {
+      let iv = freeIntervals(d).map((x) => x.slice());
+      if (d === t) iv = iv.map(([a, z]) => [Math.max(a, Math.ceil((nowMin + 10) / 15) * 15), z]).filter(([a, z]) => z - a >= 15);
+      let cap = capOf(d), placed = 0;
+      if (d === t) open.forEach((p) => p.steps.forEach((st) => { if (st.done && st.doneAt === t) cap -= durOf(st); }));
+      const put = (st) => {
+        const dur = durOf(st);
+        let k = iv.findIndex(([a, z]) => z - a >= dur);
+        if (k < 0 && iv.length) k = iv.reduce((bi, x, i, arr) => (x[1] - x[0] > arr[bi][1] - arr[bi][0] ? i : bi), 0);
+        st.start = k >= 0 ? iv[k][0] : null;
+        if (k >= 0) iv[k][0] = Math.min(iv[k][1], iv[k][0] + dur);
+        iv = iv.filter(([a, z]) => z - a >= 15);
+        cap -= dur; placed++;
+      };
+      open.forEach((p) => p.steps.forEach((st) => { if (!st.done && st.pinned && st.day === d) put(st); }));
+      while (cap >= 15 && iv.length) {
+        const q = queue.find((x) => !x.st.day && x.earliest <= d && d <= x.p.due);
+        if (!q) break;
+        const dur = durOf(q.st), fits = iv.some(([a, z]) => z - a >= dur);
+        if ((dur > cap || !fits) && placed > 0) break;
+        q.st.day = d; put(q.st);
+      }
+    }
+  }
+  const distribute = (plan, from) => scheduleAll(from);
+
   function cleanTitle(text) {
     let t = text;
     [/\s*(para\s+)?(el\s+|este\s+|pr[oó]ximo\s+)?(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)\b/i, /\s*pasado ma[ñn]ana/i, /\s*\bma[ñn]ana\b/i, /\s*\bhoy\b/i,
@@ -527,10 +586,10 @@ button { cursor: pointer; }
   }
   function defaultSched() {
     return { work: { days: [1, 2, 3, 4, 5], start: "08:00", end: "17:00", lunch: "14:00", lunchMin: 30, shortDays: [5], shortEnd: "15:00" },
-      dog: { min: 60, mode: "auto", time: "17:30", name: "" }, gym: { days: [1, 3, 5], min: 60, mode: "auto", time: "19:00" }, dayEnd: "22:00" };
+      dog: { min: 60, mode: "auto", time: "17:30", name: "" }, gym: { days: [1, 3, 5], min: 60, mode: "auto", time: "19:00" }, dayEnd: "22:00", capWork: 120, capFree: 240 };
   }
   function migrateSched() {
-    if (state.sched) return;
+    if (state.sched) { if (state.sched.capWork == null) state.sched.capWork = 120; if (state.sched.capFree == null) state.sched.capFree = 240; return; }
     const sc = defaultSched();
     try {
       const old = JSON.parse(localStorage.getItem(OLD_KEY));
@@ -541,6 +600,8 @@ button { cursor: pointer; }
         const g = old.settings.gym; if (g) Object.assign(sc.gym, { days: g.days || sc.gym.days, min: g.min || 60 });
         if (old.settings.dog) sc.dog.min = Math.max(60, old.settings.dog.min || 60);
         sc.dog.name = old.dogName || "";
+        if (old.settings.capWd != null) sc.capWork = old.settings.capWd;
+        if (old.settings.capWe != null) sc.capFree = old.settings.capWe;
       }
     } catch (e) {}
     state.sched = sc; save();
@@ -548,18 +609,19 @@ button { cursor: pointer; }
   function makePlan(title, due, area, kind) {
     kind = kind || kindOf(title);
     const plan = { id: uid(), title, due, area: area || "uni", kind, temas: kind === "Examen" ? 4 : null, created: today(), done: false,
-      steps: template(kind, 4).map((n) => ({ id: uid(), name: n, day: null, done: false })) };
-    distribute(plan, today());
+      steps: stepsFor(kind, 4) };
     return plan;
   }
   const findPlan = (id) => state.plans.find((x) => x.id === id);
   function planStatus(p) {
     const rest = p.steps.filter((x) => !x.done);
-    if (rest.some((x) => x.day < today())) return ["late", "Atrasado"];
-    const left = Math.max(1, diff(p.due));
-    if (rest.length > left) return ["tight", "Va justo"];
+    if (rest.some((x) => x.day && x.day < today())) return ["late", "Atrasado"];
+    if (rest.some((x) => !x.day)) return ["late", "No llega"];
+    if (rest.some((x) => x.day === p.due)) return ["tight", "Va justo"];
     return ["ok", "Al día"];
   }
+  const missing = (p) => p.steps.filter((x) => !x.done && !x.day).reduce((a, x) => a + durOf(x), 0);
+  const whenStep = (st) => !st.day ? "sin hueco" : (st.day === today() ? "hoy" : diff(st.day) === 1 ? "mañana" : fmt(st.day)) + (st.start != null ? " · " + hm(st.start) : "");
 
   // ---------- pintar ----------
   let openPlan = null, editPlan = null, delArmed = null;
@@ -654,7 +716,7 @@ button { cursor: pointer; }
   }
   function replanAll() {
     const open = state.plans.filter((p) => !p.done);
-    open.forEach((p) => distribute(p, today()));
+    scheduleAll(today());
     return open.length;
   }
   $("offForm").addEventListener("submit", (e) => {
@@ -680,8 +742,10 @@ button { cursor: pointer; }
       if (b.t === "work") out.push('<span class="dslot"><span class="w">' + (b.short ? "Jornada reducida" : "Trabajo") + '</span><span class="hr">' + h + "</span></span>");
       else out.push('<span class="dslot tick' + (rt[b.t] ? " done" : "") + '"><button class="check" type="button" data-rt="' + b.t + '" aria-pressed="' + !!rt[b.t] + '" aria-label="Hecho">' + (rt[b.t] ? "✓" : "") + '</button><span class="w">' + (b.t === "dog" ? "Paseo" + (s.dog.name ? " con " + esc(s.dog.name) : "") : "Gimnasio") + '</span><span class="hr">' + h + "</span></span>");
     });
+    let planned = 0; state.plans.filter((p) => !p.done).forEach((p) => p.steps.forEach((st) => { if (!st.done && st.day === d) planned += durOf(st); }));
     const g = bestGap(d);
-    if (g && dayKind(d) !== "rest") out.push('<span class="dslot study"><span class="w">Hueco para estudiar</span><span class="hr">' + hm(g[0]) + "–" + hm(g[1]) + "</span></span>");
+    if (planned) out.push('<span class="dslot study"><span class="w">Estudio planificado</span><span class="hr">' + fdur(planned) + "</span></span>");
+    else if (g && dayKind(d) !== "rest") out.push('<span class="dslot study"><span class="w">Hueco libre</span><span class="hr">' + hm(g[0]) + "–" + hm(g[1]) + "</span></span>");
     const wk = monday(d); let gymDone = 0, gymPlan = 0;
     for (let i = 0; i < 7; i++) { const x = addDays(wk, i); if (gymOn(x)) { gymPlan++; if (((state.routines || {})[x] || {}).gym) gymDone++; } }
     return '<div class="dayline">' + out.join("") + "</div>" + (gymPlan ? '<p class="xs muted">Gimnasio esta semana: ' + gymDone + " de " + gymPlan + "</p>" : "");
@@ -692,7 +756,7 @@ button { cursor: pointer; }
     $("todayBox").hidden = false;
     const rows = [];
     open.forEach((p) => p.steps.forEach((st) => { if (st.day && (st.day < t ? !st.done : st.day === t)) rows.push({ p, st }); }));
-    rows.sort((a, b) => a.st.day.localeCompare(b.st.day) || a.p.due.localeCompare(b.p.due));
+    rows.sort((a, b) => a.st.day.localeCompare(b.st.day) || (a.st.start ?? 9999) - (b.st.start ?? 9999));
     const late = rows.filter((r) => r.st.day < t);
     const todayPending = rows.filter((r) => r.st.day === t && !r.st.done);
     let html = "<h2>Hoy toca</h2>" + dayLineHTML(t);
@@ -702,8 +766,10 @@ button { cursor: pointer; }
     html += rows.map(({ p, st }) => {
       const k = diff(p.due);
       return '<div class="steprow' + (st.day < t ? " late" : "") + (st.done ? " done" : "") + '"><button class="check" type="button" data-step="' + p.id + ":" + st.id + '" aria-pressed="' + st.done + '" aria-label="Hecho">' + (st.done ? "✓" : "") + "</button>" +
-        '<div><div class="what">' + esc(st.name) + '</div><div class="why">' + esc(p.title) + " · " + (k === 0 ? "es hoy" : k === 1 ? "es mañana" : "faltan " + k + " días") + (st.day < t ? " · <b>era del " + fmt(st.day) + "</b>" : "") + "</div></div></div>";
+        '<div><div class="what">' + (st.day === t && st.start != null ? '<span class="tm">' + hm(st.start) + "</span> " : "") + esc(st.name) + '</div><div class="why">' + esc(p.title) + " · " + fdur(durOf(st)) + " · " + (k === 0 ? "es hoy" : k === 1 ? "es mañana" : "faltan " + k + " días") + (st.day < t ? " · <b>era del " + fmt(st.day) + "</b>" : "") + "</div></div></div>";
     }).join("");
+    const short = open.filter((p) => missing(p) > 0);
+    if (short.length) html += '<p class="calm">Con tu tiempo libre no llego a todo en <b>' + short.map((p) => esc(p.title)).join("</b>, <b>") + "</b>: faltan unas " + fdur(short.reduce((a, p) => a + missing(p), 0)) + ". Puedes subir el máximo de estudio en Tu horario, quitar algún paso o usar un día libre.</p>";
     if (late.length) html += '<p class="calm">' + (late.length === 1 ? "Un paso se quedó" : late.length + " pasos se quedaron") + " sin hacer otros días. No pasa nada: los reparto de nuevo en los días que quedan.</p>" +
       '<div class="row-btns"><button class="btn primary sm" type="button" data-replanall="today">Replanificar desde hoy</button></div>';
     else if (todayPending.length) html += '<div class="row-btns"><button class="btn sm" type="button" data-replanall="tomorrow">Hoy no he podido: muévelo a otros días</button></div>';
@@ -715,7 +781,7 @@ button { cursor: pointer; }
     $("plans").hidden = !open.length;
     if (!open.length) return;
     $("plans").innerHTML = '<div class="label">Exámenes y entregas</div>' + open.map((p) => {
-      const [cls, txt] = planStatus(p), dn = p.steps.filter((x) => x.done).length, k = diff(p.due);
+      const [cls, txt] = planStatus(p), miss = missing(p), dn = p.steps.filter((x) => x.done).length, k = diff(p.due);
       const next = p.steps.find((x) => !x.done);
       const isOpen = openPlan === p.id || editPlan === p.id;
       let body = "";
@@ -724,21 +790,22 @@ button { cursor: pointer; }
           '<label class="lbl small muted" style="display:grid;gap:4px">Título<input type="text" id="peTitle" value="' + esc(p.title) + '" style="background:var(--wall);border:1px solid var(--line);border-radius:8px;padding:7px 9px;height:38px"></label>' +
           '<label class="lbl small muted" style="display:grid;gap:4px">Fecha<input type="date" id="peDue" value="' + p.due + '" style="-webkit-appearance:none;appearance:none;display:block;background:var(--wall);border:1px solid var(--line);border-radius:8px;padding:7px 9px;height:38px;max-width:220px"></label>' +
           (p.kind === "Examen" && !p.steps.some((x) => x.done) ? '<label class="small muted" style="display:flex;gap:8px;align-items:center">¿Cuántos temas entran? <input type="number" id="peTemas" min="1" max="30" value="' + (p.temas || 4) + '" style="width:70px;background:var(--wall);border:1px solid var(--line);border-radius:8px;padding:6px 8px"></label>' : "") +
-          '<div class="small muted">Pasos (puedes cambiar el texto y el día):</div>' +
-          p.steps.map((st, i) => '<div class="pedit"><input type="text" data-pe="name" data-i="' + i + '" value="' + esc(st.name) + '"' + (st.done ? " disabled" : "") + '><input type="date" data-pe="day" data-i="' + i + '" value="' + (st.day || "") + '"' + (st.done ? " disabled" : "") + '><button class="x" type="button" data-perm="' + i + '" aria-label="Quitar paso">✕</button></div>').join("") +
+          '<div class="small muted">Pasos: qué es, cuántos minutos crees que te llevará y, si quieres, un día fijo.</div>' +
+          p.steps.map((st, i) => '<div class="pedit"><input type="text" data-pe="name" data-i="' + i + '" value="' + esc(st.name) + '"' + (st.done ? " disabled" : "") + ' aria-label="Paso"><input type="number" min="10" step="5" data-pe="dur" data-i="' + i + '" value="' + durOf(st) + '"' + (st.done ? " disabled" : "") + ' aria-label="Minutos"><input type="date" data-pe="day" data-i="' + i + '" value="' + (st.day || "") + '"' + (st.done ? " disabled" : "") + ' aria-label="Día"><button class="x" type="button" data-perm="' + i + '" aria-label="Quitar paso">✕</button></div>').join("") +
           '<div class="row-btns"><button class="btn sm" type="button" data-peadd="1">+ Paso</button></div>' +
           '<div class="row-btns"><button class="btn primary sm" type="button" data-pesave="' + p.id + '">Guardar</button><button class="btn sm" type="button" data-pecancel="1">Cancelar</button>' +
           '<button class="btn sm" type="button" data-pedel="' + p.id + '" style="color:var(--warn);margin-left:auto">' + (delArmed === p.id ? "Pulsa otra vez para borrar" : "Borrar") + "</button></div></div>";
       } else if (isOpen) {
         body = '<div class="plan-body"><p class="method"><b>Método:</b> ' + METHOD[p.kind] + "</p>" +
+          (miss ? '<p class="calm">No me caben unas ' + fdur(miss) + " antes de la fecha. Sube el máximo de estudio en Tu horario o acorta algún paso.</p>" : "") +
           p.steps.map((st) => { const dd = st.day ? diff(st.day) : null;
-            return '<div class="pstep' + (st.done ? " done" : "") + '"><button class="check sm" type="button" data-step="' + p.id + ":" + st.id + '" aria-pressed="' + st.done + '" aria-label="Hecho">' + (st.done ? "✓" : "") + '</button><span class="n">' + esc(st.name) + '</span><span class="d' + (!st.done && dd < 0 ? " late" : dd === 0 ? " today" : "") + '">' + (st.done ? "hecho" : dd === 0 ? "hoy" : dd === 1 ? "mañana" : fmt(st.day)) + "</span></div>"; }).join("") +
+            return '<div class="pstep' + (st.done ? " done" : "") + '"><button class="check sm" type="button" data-step="' + p.id + ":" + st.id + '" aria-pressed="' + st.done + '" aria-label="Hecho">' + (st.done ? "✓" : "") + '</button><span class="n">' + esc(st.name) + '</span><span class="d' + (!st.done && (dd < 0 || !st.day) ? " late" : dd === 0 ? " today" : "") + '">' + (st.done ? "hecho" : whenStep(st) + " · " + fdur(durOf(st))) + "</span></div>"; }).join("") +
           '<div class="row-btns"><button class="btn primary sm" type="button" data-replan="' + p.id + '">Replanificar desde hoy</button><button class="btn sm" type="button" data-peopen="' + p.id + '">Editar plan</button><button class="btn sm" type="button" data-pdone="' + p.id + '">Ya lo entregué</button></div></div>';
       }
       return '<div class="plan" id="plan-' + p.id + '"><button class="plan-head" type="button" data-popen="' + p.id + '" aria-expanded="' + isOpen + '">' +
         '<div class="plan-top"><span class="plan-title">' + esc(p.title) + '</span><span class="pill ' + cls + '">' + txt + "</span></div>" +
         '<div class="plan-sub"><span>' + p.kind + " · <b>" + (k < 0 ? "se pasó" : k === 0 ? "hoy" : k === 1 ? "mañana" : "en " + k + " días") + "</b> (" + fmt(p.due) + ")</span><span>" + dn + "/" + p.steps.length + " pasos</span>" +
-        (next && !isOpen ? "<span>Siguiente: " + esc(next.name) + " · " + (next.day === today() ? "hoy" : next.day < today() ? "atrasado" : fmt(next.day)) + "</span>" : "") + "</div>" +
+        (next && !isOpen ? "<span>Siguiente: " + esc(next.name) + " · " + (next.day && next.day < today() ? "atrasado" : whenStep(next)) + "</span>" : "") + "</div>" +
         '<div class="bar"><i style="width:' + Math.round(dn / Math.max(1, p.steps.length) * 100) + '%"></i></div></button>' + body + "</div>";
     }).join("");
   }
@@ -755,10 +822,10 @@ button { cursor: pointer; }
       save(); render();
       if (st.done) { const left = p.steps.filter((x) => !x.done).length; toast(left ? "Hecho. Te quedan " + left + (left === 1 ? " paso" : " pasos") + " para esto." : "¡Plan completo! Solo queda entregarlo."); }
     }
-    else if (ds.replan) { const p = findPlan(ds.replan); distribute(p, today()); save(); render(); toast("Replanificado: los pasos que quedan, repartidos hasta el " + fmt(addDays(p.due, -1)) + "."); }
+    else if (ds.replan) { scheduleAll(today()); save(); render(); toast("Replanificado en tus huecos libres desde hoy."); }
     else if (ds.replanall) {
       const from = ds.replanall === "tomorrow" ? addDays(today(), 1) : today();
-      state.plans.filter((p) => !p.done).forEach((p) => { if (p.steps.some((x) => !x.done && x.day <= (ds.replanall === "tomorrow" ? today() : addDays(today(), -1)))) distribute(p, from); });
+      scheduleAll(from);
       save(); render(); toast(ds.replanall === "tomorrow" ? "Movido a los próximos días. Mañana será otro día." : "Replanificado desde hoy.");
     }
     else if (ds.popen) { openPlan = openPlan === ds.popen && editPlan !== ds.popen ? null : ds.popen; editPlan = null; delArmed = null; render(); }
@@ -766,16 +833,16 @@ button { cursor: pointer; }
     else if (ds.pecancel) { editPlan = null; delArmed = null; render(); }
     else if (ds.peadd || ds.perm != null) {
       const p = findPlan(editPlan); readEdits(p);
-      if (ds.peadd) p.steps.push({ id: uid(), name: "", day: addDays(p.due, -1) < today() ? today() : addDays(p.due, -1), done: false });
+      if (ds.peadd) p.steps.push({ id: uid(), name: "", dur: 60, day: null, start: null, done: false });
       else p.steps.splice(+ds.perm, 1);
       render();
     }
     else if (ds.pesave) {
       const p = findPlan(ds.pesave), oldDue = p.due, oldTemas = p.temas; readEdits(p);
       const tm = $("peTemas");
-      if (tm && +tm.value !== oldTemas) { p.temas = Math.max(1, Math.min(30, +tm.value || 4)); p.steps = template(p.kind, p.temas).map((n) => ({ id: uid(), name: n, day: null, done: false })); distribute(p, today()); }
-      else if (p.due !== oldDue) distribute(p, today());
+      if (tm && +tm.value !== oldTemas) { p.temas = Math.max(1, Math.min(30, +tm.value || 4)); p.steps = stepsFor(p.kind, p.temas); }
       p.steps = p.steps.filter((x) => x.name.trim());
+      scheduleAll(today());
       editPlan = null; save(); render(); toast("Plan guardado.");
     }
     else if (ds.pedel) {
@@ -791,7 +858,7 @@ button { cursor: pointer; }
     const ti = $("peTitle"), du = $("peDue");
     if (ti && ti.value.trim()) p.title = ti.value.trim();
     if (du && du.value) p.due = du.value;
-    document.querySelectorAll("[data-pe]").forEach((inp) => { const st = p.steps[+inp.dataset.i]; if (!st || st.done) return; if (inp.dataset.pe === "name") st.name = inp.value; else if (inp.value) st.day = inp.value; });
+    document.querySelectorAll("[data-pe]").forEach((inp) => { const st = p.steps[+inp.dataset.i]; if (!st || st.done) return; if (inp.dataset.pe === "name") st.name = inp.value; else if (inp.dataset.pe === "dur") st.dur = Math.max(10, +inp.value || 60); else if (inp.value && inp.value !== st.day) { st.day = inp.value; st.pinned = true; } });
   }
 
   function renderDone() {
@@ -837,7 +904,7 @@ button { cursor: pointer; }
     if (campus) { addCampus(campus); return; }
     const dueV = $("due").value;
     if (dueV && isDeadline(text) && composeArea !== "life") {
-      const p = makePlan(cleanTitle(text), dueV, composeArea || "uni"); state.plans.push(p); openPlan = p.id; save();
+      const p = makePlan(cleanTitle(text), dueV, composeArea || "uni"); state.plans.push(p); scheduleAll(today()); openPlan = p.id; save();
       $("text").value = ""; $("due").value = ""; composeArea = null; areaTouched = false; dueTouched = false; syncOpts();
       $("hint").textContent = DEFAULT_HINT; render();
       toast("Te he hecho un plan de " + p.steps.length + " pasos hasta el " + fmt(dueV) + ". Revísalo abajo.");
@@ -951,7 +1018,7 @@ button { cursor: pointer; }
     el.innerHTML = L.map(([n, l]) => '<button type="button" data-d="' + n + '" aria-pressed="' + arr.includes(n) + '" aria-label="' + DOWL[n] + '">' + l + "</button>").join("");
     el.onclick = (e) => { const b = e.target.closest("[data-d]"); if (!b) return; const n = +b.dataset.d, i = arr.indexOf(n); if (i >= 0) arr.splice(i, 1); else arr.push(n); b.setAttribute("aria-pressed", arr.includes(n)); schedChanged(); };
   }
-  function schedChanged() { state.plans.filter((p) => !p.done).forEach((p) => distribute(p, today())); save(); render(); }
+  function schedChanged() { scheduleAll(today()); save(); render(); }
   function fillSched() {
     const s = SC();
     const bind = (id, get, set) => { const el = $(id); el.value = get(); el.onchange = () => { set(el.value); schedChanged(); }; };
@@ -966,6 +1033,8 @@ button { cursor: pointer; }
     bind("sGymMin", () => s.gym.min, (v) => { s.gym.min = Math.max(15, +v || 60); });
     bind("sGymTime", () => s.gym.time, (v) => { s.gym.time = v || "19:00"; });
     bind("sDayEnd", () => s.dayEnd, (v) => { s.dayEnd = v || "22:00"; });
+    bind("sCapWork", () => s.capWork, (v) => { s.capWork = Math.max(0, +v || 0); });
+    bind("sCapFree", () => s.capFree, (v) => { s.capFree = Math.max(0, +v || 0); });
     daypick($("sWorkDays"), s.work.days); daypick($("sShortDays"), s.work.shortDays); daypick($("sGymDays"), s.gym.days);
     const modes = () => {
       document.querySelectorAll("[data-dogmode]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.dogmode === s.dog.mode));
@@ -979,6 +1048,7 @@ button { cursor: pointer; }
   migrateSched();
   fillSched();
   migratePlans();
+  if (state.schedV !== 2) { scheduleAll(today()); state.schedV = 2; save(); }
   render();
 })();
 </script>
