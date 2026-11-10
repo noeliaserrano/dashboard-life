@@ -171,8 +171,12 @@ textarea { height: auto; min-height: 70px; resize: vertical; }
 .tx small { display: block; font-size: 11px; color: var(--muted); font-weight: 600; }
 .tx .a { text-align: right; font-variant-numeric: tabular-nums; }
 .tx-edit { grid-column: 1 / -1; display: grid; gap: 8px; padding-top: 6px; }
-.bill { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; font-size: 13px; font-weight: 700; padding: 7px 0; border-bottom: 1px solid #f3eff7; }
+.bill { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; font-size: 13px; font-weight: 700; padding: 7px 0; border-bottom: 1px solid #f3eff7; }
 .bill small { display: block; font-size: 11px; color: var(--muted); font-weight: 600; }
+.bill-open { border: 0; background: none; padding: 0; text-align: left; display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; width: 100%; font-weight: 700; font-size: 13px; color: inherit; cursor: pointer; }
+.bill.solo { grid-template-columns: 1fr; }
+.fx-form .g2 { align-items: end; }
+.fx-form { grid-column: 1 / -1; display: grid; gap: 10px; background: var(--soft); border-radius: 14px; padding: 12px; }
 .bill .st { border: 0; font-size: 11px; font-weight: 800; padding: 4px 9px; border-radius: 8px; }
 .st.pend { background: var(--pend-bg); color: var(--pend); } .st.paid { background: var(--ok-bg); color: var(--ok); }
 .fx { display: grid; gap: 8px; padding: 10px 0; border-bottom: 1px dashed var(--line); }
@@ -928,7 +932,7 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
 
   // ================= PINTAR =================
   let noteCtx = null, openPlan = null, editPlan = null, delArmed = null, openNote = null, editNote = null, splitNote = null, pickerOpen = false, areaFilter = "all";
-  let selDay = today(), agWeek = monday(today()), moneyYM = ymOf(today()), openCat = null, openTx = null, fixedEdit = false, offKind = "rest";
+  let selDay = today(), agWeek = monday(today()), moneyYM = ymOf(today()), openCat = null, openTx = null, fixedEdit = false, offKind = "rest", openFx = null;
 
   function render() {
     renderInicio(); renderPosits(); renderEstudio(); renderAgenda(); renderDinero(); renderBadges();
@@ -1108,7 +1112,7 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
         '<div class="bar" style="--c:' + (left < 0 ? "var(--over)" : "var(--ink)") + '"><i style="width:' + pct + '%"></i></div>' +
         '<div class="sum"><span>Ingreso</span><span class="n"><button class="link" type="button" id="incomeEdit">' + eur(b.income) + "</button></span><span>Gastos fijos de " + monthName(ym).toLowerCase() + '</span><span class="n">− ' + eur(b.fixed) + "</span>" +
         '<span class="tot">Te queda para el mes</span><span class="n tot">' + eur(b.avail) + "</span><span>Gastado en categorías</span><span class=\"n\">− " + eur(sp) + '</span><span class="tot">Disponible ahora</span><span class="n tot" style="color:' + (left < 0 ? "var(--over)" : "var(--ok)") + '">' + eur(left) + "</span></div>" +
-        (m.fixed.some((f) => f.amount == null || f.amount === "") ? '<p class="xs" style="color:var(--pend)">Hay gastos fijos sin importe. Ponlos abajo para que el cálculo sea real.</p>' : "") +
+        (m.fixed.some((f) => f.amount == null || f.amount === "") ? '<p class="xs" style="color:var(--pend)">Hay gastos fijos sin importe. Toca cada uno abajo para poner el importe y el día.</p>' : "") +
         (b.over ? '<p class="xs" style="color:var(--over)">Tus límites suman más de lo que te queda tras los fijos.</p>' : "");
     }
     // categorías
@@ -1124,9 +1128,9 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
     // fijos
     const occ = fixedOn(ym), ft = occ.reduce((a, x) => a + x.amount, 0), paid = occ.filter((x) => x.paid).reduce((a, x) => a + x.amount, 0);
     let fh = '<div class="card-h"><span>Gastos fijos de ' + monthName(ym).toLowerCase() + '</span><span class="lbl">' + eur(paid) + " / " + eur(ft) + "</span></div>";
-    fh += occ.map((x) => '<div class="bill"><span>' + esc(x.f.name) + "<small>" + (x.paid ? "pagado" : diff(x.date) < 0 ? "era el " + parse(x.date).getDate() : diff(x.date) === 0 ? "se cobra hoy" : "se cobra el " + parse(x.date).getDate()) + (x.f.freq === "plazos" ? " · plazo " + ((x.f.dates || []).indexOf(x.date) + 1) + " de " + (x.f.dates || []).length : x.f.freq === "anual" ? " · anual" : "") + '</small></span><span class="num">' + (x.amount ? eur(x.amount) : '<span class="tg amber">sin importe</span>') + '</span><button class="st ' + (x.paid ? "paid" : "pend") + '" type="button" data-pay="' + x.f.id + "|" + x.date + '">' + (x.paid ? "pagado" : "pendiente") + "</button></div>").join("") || '<p class="small muted">Ninguno este mes.</p>';
+    fh += occ.map((x) => '<div class="bill"><button type="button" class="bill-open" data-fxopen="' + x.f.id + '"><span>' + esc(x.f.name) + "<small>" + (x.paid ? "pagado" : diff(x.date) < 0 ? "era el " + parse(x.date).getDate() : diff(x.date) === 0 ? "se cobra hoy" : "se cobra el " + parse(x.date).getDate()) + (x.f.freq === "plazos" ? " · plazo " + ((x.f.dates || []).indexOf(x.date) + 1) + " de " + (x.f.dates || []).length : x.f.freq === "anual" ? " · anual" : "") + '</small></span><span class="num">' + (x.amount ? eur(x.amount) : '<span class="tg amber">pon el importe</span>') + '</span></button><button class="st ' + (x.paid ? "paid" : "pend") + '" type="button" data-pay="' + x.f.id + "|" + x.date + '">' + (x.paid ? "pagado" : "pendiente") + "</button>" + (openFx === x.f.id ? fxInline(x.f) : "") + "</div>").join("") || '<p class="small muted">Ninguno este mes.</p>';
     const notThis = m.fixed.filter((f) => !occ.some((x) => x.f === f));
-    if (notThis.length && !fixedEdit) fh += '<p class="xs muted">Este mes no tocan: ' + notThis.map((f) => esc(f.name)).join(", ") + ".</p>";
+    if (notThis.length && !fixedEdit) fh += '<p class="xs muted">Este mes no tocan:</p><div class="chips">' + notThis.map((f) => '<button type="button" class="chip" data-fxopen="' + f.id + '">' + esc(f.name) + (f.amount ? " · " + eur(f.amount) : "") + "</button>").join("") + "</div>" + notThis.filter((f) => openFx === f.id).map((f) => '<div class="bill solo">' + fxInline(f) + "</div>").join("");
     fh += fixedEdit ? fixedEditor() : '<div class="chips"><button class="btn sm" type="button" id="fxEdit">Editar gastos fijos</button></div>';
     $("mFixed").innerHTML = fh;
     // movimientos
@@ -1149,10 +1153,28 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
   };
   const catIcon = (id) => '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (CAT_ICON[id] || CAT_ICON.otros) + "</svg>";
   function darker(hex) { const n = parseInt(hex.slice(1), 16); const f = (v) => Math.max(0, Math.round(v * 0.62)); return "rgb(" + f(n >> 16) + "," + f((n >> 8) & 255) + "," + f(n & 255) + ")"; }
+  // Formulario corto al tocar un gasto fijo: importe y día en que te lo pasan.
+  function fxInline(f) {
+    const freqChips = '<div class="chips">' + [["mensual", "Cada mes"], ["plazos", "En plazos"], ["anual", "Una vez al año"]].map(([k, l]) => '<button type="button" class="chip" data-fxfreq="' + f.id + "|" + k + '" aria-pressed="' + (f.freq === k) + '">' + l + "</button>").join("") + "</div>";
+    let when = "";
+    if (f.freq === "mensual") when = '<label class="field">Día del mes que te lo pasan<input type="number" min="1" max="31" inputmode="numeric" id="fxDay" value="' + (f.day || "") + '" placeholder="Ej. 5"></label>';
+    else if (f.freq === "anual") when = '<label class="field">Día que te lo pasan cada año<input type="date" id="fxMd" value="' + (f.md ? new Date().getFullYear() + "-" + f.md : "") + '"></label>';
+    else when = '<div class="field">Día de cada plazo' + (f.dates || []).map((d, i) => '<div class="fx-top" style="grid-template-columns:auto 1fr auto;align-items:center"><span class="xs muted">Plazo ' + (i + 1) + '</span><input type="date" data-fxpd="' + i + '" value="' + d + '"><button class="x" type="button" data-fxdatedel="' + f.id + "|" + i + '" aria-label="Quitar plazo">✕</button></div>').join("") + '<div class="chips"><button class="btn sm" type="button" data-fxdateadd="' + f.id + '">+ Plazo</button></div></div>';
+    return '<div class="fx-form"><div class="g2"><label class="field">Importe (€)' + (f.freq === "plazos" ? " de cada plazo" : "") + '<input type="text" inputmode="decimal" id="fxAmt" value="' + (f.amount != null ? String(f.amount).replace(".", ",") : "") + '" placeholder="Ej. 45,90"></label>' +
+      (f.freq === "mensual" ? when : "") + "</div>" + (f.freq !== "mensual" ? when : "") + freqChips +
+      '<div class="chips"><button class="btn dark sm" type="button" data-fxsave="' + f.id + '">Guardar</button><button class="btn sm" type="button" data-fxclose="1">Cancelar</button></div></div>';
+  }
+  function readFxInline(f) {
+    const a = $("fxAmt"), d = $("fxDay"), md = $("fxMd");
+    if (a) { const v = String(a.value).trim().replace(/\s|€/g, "").replace(/\.(?=\d{3}\b)/g, "").replace(",", "."); f.amount = v === "" ? null : Math.max(0, parseFloat(v)) || null; }
+    if (d && d.value) f.day = Math.min(31, Math.max(1, +d.value));
+    if (md && md.value) f.md = md.value.slice(5);
+    document.querySelectorAll("[data-fxpd]").forEach((inp) => { f.dates[+inp.dataset.fxpd] = inp.value; });
+  }
   function fixedEditor() {
-    return M().fixed.map((f) => '<div class="fx" data-fx="' + f.id + '"><div class="fx-top"><input type="text" data-fxf="name" value="' + esc(f.name) + '" aria-label="Nombre"><input type="number" inputmode="decimal" data-fxf="amount" value="' + (f.amount ?? "") + '" placeholder="€" aria-label="Importe"><button class="x" type="button" data-fxdel="' + f.id + '" aria-label="Quitar">✕</button></div>' +
+    return M().fixed.map((f) => '<div class="fx" data-fx="' + f.id + '"><div class="fx-top"><input type="text" data-fxf="name" value="' + esc(f.name) + '" aria-label="Nombre"><input type="number" inputmode="decimal" data-fxf="amount" value="' + (f.amount ?? "") + '" placeholder="Importe €" aria-label="Importe en euros"><button class="x" type="button" data-fxdel="' + f.id + '" aria-label="Quitar">✕</button></div>' +
       '<div class="chips">' + [["mensual", "Cada mes"], ["plazos", "En plazos"], ["anual", "Una vez al año"]].map(([k, l]) => '<button type="button" class="chip" data-fxfreq="' + f.id + "|" + k + '" aria-pressed="' + (f.freq === k) + '">' + l + "</button>").join("") + "</div>" +
-      (f.freq === "mensual" ? '<label class="field">Día del mes en que se cobra<input type="number" min="1" max="31" data-fxf="day" value="' + (f.day || "") + '"></label>' :
+      (f.freq === "mensual" ? '<label class="field">Día del mes que te lo pasan<input type="number" min="1" max="31" data-fxf="day" value="' + (f.day || "") + '"></label>' :
        f.freq === "anual" ? '<label class="field">Fecha en que se cobra<input type="date" data-fxf="md" value="' + (f.md ? new Date().getFullYear() + "-" + f.md : "") + '"></label>' :
        '<div class="field">Fechas de cada plazo (importe por plazo arriba)' + (f.dates || []).map((d, i) => '<div class="fx-top" style="grid-template-columns:1fr auto"><input type="date" data-fxdate="' + i + '" value="' + d + '"><button class="x" type="button" data-fxdatedel="' + f.id + "|" + i + '">✕</button></div>').join("") + '<div class="chips"><button class="btn sm" type="button" data-fxdateadd="' + f.id + '">+ Plazo</button></div></div>') + "</div>").join("") +
       '<div class="chips"><button class="btn sm" type="button" id="fxAdd">+ Gasto fijo</button><button class="btn dark sm" type="button" id="fxDone">Listo</button></div>';
@@ -1161,7 +1183,7 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
   // ================= ACCIONES =================
   let lastUndo = null;
   document.addEventListener("click", (e) => {
-    const el = e.target.closest("[data-go],[data-sel],[data-agday],[data-nopen],[data-ndone],[data-ntoday],[data-nedit],[data-nsplit],[data-nsplit2],[data-ntoss],[data-nsave],[data-ncancel],[data-nearea],[data-nundo],[data-filter],[data-pick],[data-rt],[data-pay],[data-step],[data-replan],[data-popen],[data-peopen],[data-pecancel],[data-peadd],[data-perm],[data-pesave],[data-pedel],[data-pdone],[data-evdel],[data-offdel],[data-offkind],[data-cat],[data-limsave],[data-limclear],[data-tx],[data-txcat],[data-txdel],[data-fxfreq],[data-fxdel],[data-fxdateadd],[data-fxdatedel]");
+    const el = e.target.closest("[data-go],[data-sel],[data-agday],[data-nopen],[data-ndone],[data-ntoday],[data-nedit],[data-nsplit],[data-nsplit2],[data-ntoss],[data-nsave],[data-ncancel],[data-nearea],[data-nundo],[data-filter],[data-pick],[data-rt],[data-pay],[data-step],[data-replan],[data-popen],[data-peopen],[data-pecancel],[data-peadd],[data-perm],[data-pesave],[data-pedel],[data-pdone],[data-evdel],[data-offdel],[data-offkind],[data-cat],[data-limsave],[data-limclear],[data-tx],[data-txcat],[data-txdel],[data-fxfreq],[data-fxdel],[data-fxdateadd],[data-fxdatedel],[data-fxopen],[data-fxsave],[data-fxclose]");
     if (!el) return;
     const ds = el.dataset, t = today();
     if (ds.go) { go(ds.go); return; }
@@ -1214,10 +1236,13 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
     if (ds.txcat) { const [id, cid] = ds.txcat.split("|"), tx = M().tx.find((x) => x.id === id); tx.cat = cid; norm(tx.note).split(/\s+/).filter((w) => w.length > 2).slice(0, 2).forEach((w) => { M().learn[w] = cid; }); save(); renderDinero(); toast("Cambiado a " + catOf(cid).name + ". La próxima vez lo recordaré."); return; }
     if (ds.txdel) { const tx = M().tx.find((x) => x.id === ds.txdel); M().tx = M().tx.filter((x) => x !== tx); openTx = null; save(); renderDinero(); toastAct("Gasto borrado.", "Deshacer", () => { M().tx.push(tx); save(); renderDinero(); }); return; }
     if (ds.tx) { if (e.target.closest(".tx-edit")) return; openTx = openTx === ds.tx ? null : ds.tx; renderDinero(); return; }
-    if (ds.fxfreq) { const [id, k] = ds.fxfreq.split("|"), f = M().fixed.find((x) => x.id === id); f.freq = k; if (k === "plazos" && !f.dates) f.dates = []; if (k === "mensual" && !f.day) f.day = 1; save(); renderDinero(); return; }
+    if (ds.fxopen) { openFx = openFx === ds.fxopen ? null : ds.fxopen; renderDinero(); const a = $("fxAmt"); if (a && !a.value) a.focus(); return; }
+    if (ds.fxclose) { openFx = null; renderDinero(); return; }
+    if (ds.fxsave) { const f = M().fixed.find((x) => x.id === ds.fxsave); readFxInline(f); if (f.dates) f.dates = f.dates.filter(Boolean).sort(); openFx = null; save(); render(); toast(f.name + (f.amount ? ": " + eur(f.amount) : "") + (f.freq === "mensual" && f.day ? ", el día " + f.day + " de cada mes." : ".")); return; }
+    if (ds.fxfreq) { const [id, k] = ds.fxfreq.split("|"), f = M().fixed.find((x) => x.id === id); if (openFx === id) readFxInline(f); f.freq = k; if (k === "plazos" && !f.dates) f.dates = []; if (k === "mensual" && !f.day) f.day = 1; save(); renderDinero(); return; }
     if (ds.fxdel) { M().fixed = M().fixed.filter((x) => x.id !== ds.fxdel); save(); renderDinero(); return; }
-    if (ds.fxdateadd) { const f = M().fixed.find((x) => x.id === ds.fxdateadd); f.dates = f.dates || []; f.dates.push(""); save(); renderDinero(); return; }
-    if (ds.fxdatedel) { const [id, i] = ds.fxdatedel.split("|"), f = M().fixed.find((x) => x.id === id); f.dates.splice(+i, 1); save(); renderDinero(); return; }
+    if (ds.fxdateadd) { const f = M().fixed.find((x) => x.id === ds.fxdateadd); if (openFx === f.id) readFxInline(f); f.dates = f.dates || []; f.dates.push(""); save(); renderDinero(); return; }
+    if (ds.fxdatedel) { const [id, i] = ds.fxdatedel.split("|"), f = M().fixed.find((x) => x.id === id); if (openFx === id) readFxInline(f); f.dates.splice(+i, 1); save(); renderDinero(); return; }
   });
   function readEdits(p) {
     const ti = $("peTitle"), du = $("peDue"); if (ti && ti.value.trim()) p.title = ti.value.trim(); if (du && du.value) p.due = du.value;
