@@ -149,6 +149,17 @@ textarea { height: auto; min-height: 70px; resize: vertical; }
 
 /* agenda */
 .agday { display: grid; gap: 6px; }
+.mgrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; background: var(--card); border-radius: 18px; padding: 10px 8px; box-shadow: var(--shadow); }
+.mgrid .dw { text-align: center; font-size: 11px; font-weight: 800; color: var(--faint); padding-bottom: 4px; }
+.mc { border: 0; background: none; border-radius: 12px; min-height: 52px; padding: 5px 2px 4px; display: grid; align-content: start; justify-items: center; gap: 3px; font-size: 13px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+.mc.out { opacity: .3; }
+.mc.today { box-shadow: inset 0 0 0 2px var(--ink); }
+.mc[aria-pressed="true"] { background: var(--ink); color: #fff; }
+.mc.rest { background: var(--p-blue); } .mc.rest[aria-pressed="true"] { background: var(--ink); }
+.mc .dots { display: flex; gap: 2px; flex-wrap: wrap; justify-content: center; max-width: 34px; }
+.mc .dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
+.mlegend { display: flex; gap: 10px; flex-wrap: wrap; font-size: 11px; font-weight: 700; color: var(--muted); }
+.mlegend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--c); margin-right: 4px; }
 .agev { display: grid; grid-template-columns: 4px 1fr auto; gap: 10px; align-items: center; background: var(--card); border-radius: 12px; padding: 9px 10px 9px 0; font-size: 13px; font-weight: 700; overflow: hidden; box-shadow: var(--shadow); }
 .agev .c { align-self: stretch; background: var(--c); }
 .agev small { display: block; font-size: 11px; color: var(--muted); font-weight: 600; }
@@ -224,6 +235,7 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
   </div>
   <div class="days" id="iDays"></div>
   <div id="iAlert"></div>
+  <div id="iRemind"></div>
   <div class="sec">Tus pósits de hoy</div>
   <div class="view" style="gap:8px" id="iPosits"></div>
   <div class="sec" id="iDayLbl">Tu día</div>
@@ -281,7 +293,9 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
     </div>
     <div class="cap-act"><button class="btn dark sm" type="submit">Guardar</button><button class="btn sm" type="button" id="evCancel">Cancelar</button></div>
   </form>
+  <div class="chips" id="aMode"><button type="button" class="chip" data-agmode="week" aria-pressed="true">Semana</button><button type="button" class="chip" data-agmode="month" aria-pressed="false">Mes</button></div>
   <div class="days" id="aDays"></div>
+  <div class="mgrid" id="aMonthGrid" hidden></div>
   <div class="view" style="gap:12px" id="aList"></div>
   <div class="card">
     <div class="card-h">Vacaciones y festivos</div>
@@ -337,6 +351,30 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
     <div class="card-h">Estudio</div>
     <div class="g2"><label class="field">Máx. con trabajo (min)<input type="number" id="sCapWork" min="0" step="15"></label><label class="field">Máx. día libre (min)<input type="number" id="sCapFree" min="0" step="15"></label>
       <label class="field">Nada después de las<input type="time" id="sDayEnd"></label></div>
+  </div>
+  <div class="card" id="remindCard">
+    <div class="card-h">Avisos en Recordatorios</div>
+    <p class="small muted">La app prepara tus avisos y los manda a la app Recordatorios del iPhone con un atajo. Recordatorios te avisa aunque esta app esté cerrada.</p>
+    <details id="howTo"><summary class="small" style="font-weight:800;cursor:pointer">Cómo crear el atajo (solo una vez, 3 minutos)</summary>
+      <ol class="small" style="display:grid;gap:8px;padding-left:20px;margin:10px 0 0">
+        <li>Abre la app <b>Atajos</b> y pulsa <b>+</b>. Ponle de nombre exactamente <b id="howName">Mi pared</b>.</li>
+        <li>Añade la acción <b>Dividir texto</b>. Toca el texto azul y elige <b>Entrada del atajo</b>. Como separador, <b>Saltos de línea</b>.</li>
+        <li>Añade <b>Repetir con cada elemento</b>. Debe usar el <b>Texto dividido</b> del paso anterior.</li>
+        <li>Dentro de la repetición, añade otra vez <b>Dividir texto</b>: texto <b>Elemento de repetición</b>, separador <b>Personalizado</b> y escribe <b>|</b> (la barra vertical).</li>
+        <li>Añade <b>Obtener elemento de la lista</b> y elige <b>Primer elemento</b>. Es el título del aviso.</li>
+        <li>Añade otra vez <b>Obtener elemento de la lista</b>, elige <b>Último elemento</b> y cambia la lista por el <b>Texto dividido</b> del paso 4. Es la fecha y hora.</li>
+        <li>Añade <b>Añadir nuevo recordatorio</b>. En el título pon el resultado del paso 5. Toca <b>Mostrar más</b>, activa <b>Recordarme</b> → <b>En un día y hora</b> y pon el resultado del paso 6. Si quieres, elige una lista de Recordatorios.</li>
+        <li>Guarda el atajo, vuelve aquí y pulsa <b>Enviar aviso de prueba</b>. Si en 2 minutos te llega, pulsa <b>Ya funciona</b>.</li>
+      </ol>
+    </details>
+    <div class="g2">
+      <label class="field">Nombre del atajo<input type="text" id="rName"></label>
+      <label class="field">Resumen de la mañana<input type="time" id="rMorning"></label>
+      <label class="field">Avisar antes de una cita (min)<input type="number" id="rBefore" min="0" step="5"></label>
+    </div>
+    <div class="cap-act"><button class="btn sm" type="button" id="rTest">Enviar aviso de prueba</button><button class="btn dark sm" type="button" id="rReady">Ya funciona</button></div>
+    <div class="cap-act"><button class="btn sm" type="button" id="rResend">Volver a enviar los de las próximas 2 semanas</button></div>
+    <p class="xs muted" id="rStatus"></p>
   </div>
   <div class="card">
     <div class="card-h">Tus datos</div>
@@ -932,10 +970,10 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
 
   // ================= PINTAR =================
   let noteCtx = null, openPlan = null, editPlan = null, delArmed = null, openNote = null, editNote = null, splitNote = null, pickerOpen = false, areaFilter = "all";
-  let selDay = today(), agWeek = monday(today()), moneyYM = ymOf(today()), openCat = null, openTx = null, fixedEdit = false, offKind = "rest", openFx = null;
+  let selDay = today(), agWeek = monday(today()), moneyYM = ymOf(today()), openCat = null, openTx = null, fixedEdit = false, offKind = "rest", openFx = null, agMode = "week", agMonth = ymOf(today()), agSel = today();
 
   function render() {
-    renderInicio(); renderPosits(); renderEstudio(); renderAgenda(); renderDinero(); renderBadges();
+    renderInicio(); renderPosits(); renderEstudio(); renderAgenda(); renderDinero(); renderBadges(); renderRemind();
   }
   function renderBadges() {
     $("bPosits").textContent = state.notes.filter((n) => !n.done).length || "";
@@ -959,7 +997,7 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
     if (n.due) { const k = diff(n.due); tags.push(k < 0 ? '<span class="tg red">atrasado</span>' : k === 0 ? '<span class="tg">hoy</span>' : ""); }
     else if (n.today === today()) tags.push('<span class="tg">hoy</span>');
     if (age >= 2) tags.push('<span class="tg red">' + age + " sem</span>");
-    const sub = [n.area ? AREA[n.area] : "", n.due ? (diff(n.due) === 0 ? "vence hoy" : diff(n.due) < 0 ? "era del " + fmt(n.due) : fmt(n.due)) : "", n.today === today() && !(n.due && diff(n.due) <= 0) ? "marcado para hoy" : ""].filter(Boolean).join(" · ");
+    const sub = [n.area ? AREA[n.area] : "", n.due ? (diff(n.due) === 0 ? "vence hoy" : diff(n.due) < 0 ? "era del " + fmt(n.due) : fmt(n.due)) : "", n.today === today() && !(n.due && diff(n.due) <= 0) ? "marcado para hoy" : n.created === today() && !n.due ? "apuntado hoy" : ""].filter(Boolean).join(" · ");
     let extra = "";
     if (here && editNote === n.id) {
       extra = '<div class="edit"><input type="text" id="neText" value="' + esc(n.text) + '"><div class="chips">' + Object.keys(AREA).map((a) => '<button type="button" class="chip" data-nearea="' + a + '" aria-pressed="' + (n.area === a) + '">' + AREA[a] + "</button>").join("") +
@@ -984,8 +1022,11 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
     const old = state.notes.filter((n) => !n.done && weeksAgo(n.week) >= 2).sort((a, b) => a.week.localeCompare(b.week));
     $("iAlert").innerHTML = old.length ? '<div class="alert"><b>' + (old.length === 1 ? "1 pósit lleva" : old.length + " pósits llevan") + " más de 2 semanas</b><span>«" + esc(old[0].text) + "» lleva " + weeksAgo(old[0].week) + ' semanas. ¿Lo haces hoy, lo partes o lo sueltas? <button class="link" type="button" data-go="posits">Verlos</button></span></div>' : "";
     // pósits de hoy
-    const mine = state.notes.filter((n) => !n.done && ((n.due && n.due <= t) || n.today === t)).sort((a, b) => a.week.localeCompare(b.week));
-    $("iPosits").innerHTML = mine.map(noteRow("inicio")).join("") || '<div class="empty"><b>Nada para hoy</b>Toca un pósit en tu pared y elige «Para hoy».</div>';
+    const mine = state.notes.filter((n) => !n.done && ((n.due && n.due <= t) || n.today === t || n.created === t))
+      .sort((a, b) => ((a.due && a.due <= t) ? 0 : 1) - ((b.due && b.due <= t) ? 0 : 1) || a.week.localeCompare(b.week));
+    const restN = state.notes.filter((n) => !n.done).length - mine.length;
+    $("iPosits").innerHTML = (mine.map(noteRow("inicio")).join("") || '<div class="empty"><b>Nada para hoy todavía</b>Lo que apuntes hoy, lo que venza hoy y lo que marques «Para hoy» sale aquí.</div>') +
+      (restN > 0 ? '<button class="btn sm" type="button" data-go="posits" style="justify-self:start">Ver toda la pared (' + restN + " más)</button>" : "");
     // día
     $("iDayLbl").textContent = selDay === t ? "Tu día" : "Ese día";
     const k = dayKind(selDay), off = offOn(selDay)[0];
@@ -1079,19 +1120,47 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
   }
 
   // ---------- AGENDA ----------
-  function renderAgenda() {
-    $("aMonth").textContent = cap1(MONL[parse(agWeek).getMonth()]) + " · semana del " + parse(agWeek).getDate();
-    weekStrip($("aDays"), agWeek, null, "data-agday");
-    let h = "";
-    for (let i = 0; i < 7; i++) {
-      const d = addDays(agWeek, i), items = [];
+  // Lo que hay un día en la agenda: citas, recibos, entregas y días especiales.
+  function agItems(d) {
+    const items = [];
       eventsOn(d).forEach((e) => items.push('<div class="agev" style="--c:#c6aff0"><span class="c"></span><span>' + hm(toMin(e.start)) + " " + esc(e.title) + "<small>" + hm(toMin(e.start)) + "–" + hm(toMin(e.end)) + (e.weekly ? " · cada semana" : "") + '</small></span><button class="x" type="button" data-evdel="' + e.id + '" aria-label="Borrar">' + (delArmed === e.id ? "¿Borrar?" : "✕") + "</button></div>"));
       fixedOn(ymOf(d)).filter((x) => x.date === d).forEach((x) => items.push('<div class="agev" style="--c:#f7b46f"><span class="c"></span><span>' + esc(x.f.name) + " · " + (x.amount ? eur(x.amount) : "sin importe") + "<small>" + (x.paid ? "pagado" : "recibo") + "</small></span><span></span></div>"));
       state.plans.filter((p) => !p.done && p.due === d).forEach((p) => items.push('<div class="agev" style="--c:#a8dc96"><span class="c"></span><span>Entrega: ' + esc(p.title) + "<small>" + p.kind + "</small></span><span></span></div>"));
       const k = dayKind(d); if (k || isShort(d)) items.push('<div class="agev" style="--c:#97cbee"><span class="c"></span><span>' + (k === "rest" ? "Descanso" : k === "free" ? "Día libre" : "Jornada reducida") + "<small>" + (isShort(d) ? "sales a las " + hm(toMin(SC().work.shortEnd)) : (offOn(d)[0] || {}).name || "") + "</small></span><span></span></div>");
-      if (items.length) h += '<div class="agday" id="ag-' + d + '"><div class="sec">' + (d === today() ? "Hoy · " : "") + cap1(DOWL[parse(d).getDay()]) + " " + parse(d).getDate() + "</div>" + items.join("") + "</div>";
+      state.notes.filter((n) => !n.done && n.due === d).forEach((n) => items.push('<div class="agev" style="--c:' + colorOf(n.week).c + '"><span class="c"></span><span>' + esc(n.text) + "<small>pósit con fecha</small></span><span></span></div>"));
+    return items;
+  }
+  const agDay = (d, items) => '<div class="agday" id="ag-' + d + '"><div class="sec">' + (d === today() ? "Hoy · " : "") + cap1(DOWL[parse(d).getDay()]) + " " + parse(d).getDate() + (agMode === "month" ? " de " + MONL[parse(d).getMonth()] : "") + "</div>" + items.join("") + "</div>";
+  function renderAgenda() {
+    document.querySelectorAll("[data-agmode]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.agmode === agMode));
+    $("aDays").hidden = agMode !== "week"; $("aMonthGrid").hidden = agMode !== "month";
+    let h = "";
+    if (agMode === "week") {
+      $("aMonth").textContent = cap1(MONL[parse(agWeek).getMonth()]) + " · semana del " + parse(agWeek).getDate();
+      weekStrip($("aDays"), agWeek, null, "data-agday");
+      for (let i = 0; i < 7; i++) { const d = addDays(agWeek, i), items = agItems(d); if (items.length) h += agDay(d, items); }
+      $("aList").innerHTML = h || '<div class="empty">Semana sin citas. Dicta una arriba: «dentista el jueves a las 6».</div>';
+    } else {
+      const [y, mo] = agMonth.split("-").map(Number);
+      $("aMonth").textContent = cap1(MONL[mo - 1]) + (y !== new Date().getFullYear() ? " " + y : "");
+      const first = agMonth + "-01", start = monday(first);
+      let g = ["L", "M", "X", "J", "V", "S", "D"].map((x) => '<span class="dw">' + x + "</span>").join("");
+      for (let i = 0; i < 42; i++) {
+        const d = addDays(start, i); if (i >= 35 && ymOf(d) !== agMonth) break;
+        const dots = [];
+        if (eventsOn(d).length) dots.push("#c6aff0");
+        if (fixedOn(ymOf(d)).some((x) => x.date === d)) dots.push("#f7b46f");
+        if (state.plans.some((p) => !p.done && p.due === d)) dots.push("#5fb24a");
+        if (state.notes.some((n) => !n.done && n.due === d)) dots.push("#f5a6c1");
+        if (state.plans.some((p) => !p.done && p.steps.some((st) => !st.done && st.day === d))) dots.push("#a8dc96");
+        g += '<button type="button" class="mc' + (ymOf(d) !== agMonth ? " out" : "") + (d === today() ? " today" : "") + (dayKind(d) === "rest" ? " rest" : "") + '" data-agpick="' + d + '" aria-pressed="' + (d === agSel) + '" aria-label="' + fmt(d) + '">' + parse(d).getDate() +
+          '<span class="dots">' + dots.map((c) => '<i style="--c:' + c + '"></i>').join("") + "</span></button>";
+      }
+      $("aMonthGrid").innerHTML = g + '<div class="mlegend" style="grid-column:1/-1;padding-top:6px"><span><i style="--c:#c6aff0"></i>Cita</span><span><i style="--c:#f7b46f"></i>Recibo</span><span><i style="--c:#5fb24a"></i>Entrega</span><span><i style="--c:#a8dc96"></i>Estudio</span><span><i style="--c:#f5a6c1"></i>Pósit</span></div>';
+      const items = agItems(agSel);
+      const steps = []; state.plans.filter((p) => !p.done).forEach((p) => p.steps.forEach((st) => { if (!st.done && st.day === agSel) steps.push('<div class="agev" style="--c:#a8dc96"><span class="c"></span><span>' + (st.start != null ? hm(st.start) + " " : "") + esc(st.name) + "<small>" + esc(p.title) + " · " + fdur(durOf(st)) + "</small></span><span></span></div>"); }));
+      $("aList").innerHTML = (items.length || steps.length) ? agDay(agSel, items.concat(steps)) : '<div class="empty">' + cap1(fmt(agSel)) + ": nada apuntado.</div>";
     }
-    $("aList").innerHTML = h || '<div class="empty">Semana sin citas. Dicta una arriba: «dentista el jueves a las 6».</div>';
     const list = state.daysOff.slice().sort((a, b) => a.from.localeCompare(b.from));
     $("offList").innerHTML = list.map((o) => '<li style="' + ((o.to || o.from) < today() ? "opacity:.5" : "") + '"><span class="grow">' + cap1(o.to && o.to !== o.from ? fmt(o.from) + " – " + fmt(o.to) : fmt(o.from)) + (o.name ? " · " + esc(o.name) : "") + '</span><span class="tg">' + (o.kind === "rest" ? "descanso" : o.kind === "short" ? "reducida" : "día libre") + '</span><button class="x" type="button" data-offdel="' + o.id + '" aria-label="Quitar">✕</button></li>').join("") || '<li class="muted">Nada marcado.</li>';
   }
@@ -1272,8 +1341,13 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
   });
   $("mPrev").onclick = () => { moneyYM = addMonths(moneyYM, -1); openCat = openTx = null; renderDinero(); };
   $("mNext").onclick = () => { moneyYM = addMonths(moneyYM, 1); openCat = openTx = null; renderDinero(); };
-  $("aPrev").onclick = () => { agWeek = addDays(agWeek, -7); renderAgenda(); };
-  $("aNext").onclick = () => { agWeek = addDays(agWeek, 7); renderAgenda(); };
+  const agMove = (k) => { if (agMode === "week") agWeek = addDays(agWeek, 7 * k); else { agMonth = addMonths(agMonth, k); agSel = agMonth === ymOf(today()) ? today() : agMonth + "-01"; } renderAgenda(); };
+  $("aPrev").onclick = () => agMove(-1);
+  $("aNext").onclick = () => agMove(1);
+  document.addEventListener("click", (e) => {
+    const m = e.target.closest("[data-agmode]"); if (m) { agMode = m.dataset.agmode; renderAgenda(); return; }
+    const pk = e.target.closest("[data-agpick]"); if (pk) { agSel = pk.dataset.agpick; renderAgenda(); }
+  });
   $("weekBtn").onclick = () => { pickerOpen = !pickerOpen; renderPosits(); };
   // formulario completo de cita
   let evWeekly = false;
@@ -1332,6 +1406,57 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
     wipeArmed = false; $("wipeBtn").textContent = "Borrar los datos de ejemplo"; save(); render(); go("inicio"); toast("Listo. Empieza con lo tuyo.");
   };
 
+  // ---------- avisos en Recordatorios (vía Atajos) ----------
+  function RM() { if (!state.remind) state.remind = { name: "Mi pared", morning: "07:30", before: 60, ready: false, sent: {} }; return state.remind; }
+  const atStr = (d, min) => d + " " + pad(Math.floor(min / 60)) + ":" + pad(min % 60);
+  const clean = (t) => String(t).replace(/[|\n\r]+/g, " ").trim().slice(0, 140);
+  // Avisos de las próximas 2 semanas: resumen de la mañana, citas, entregas y recibos.
+  function buildReminders() {
+    const r = RM(), now = new Date(), nowS = iso(now) + " " + pad(now.getHours()) + ":" + pad(now.getMinutes()), mor = toMin(r.morning || "07:30"), out = [];
+    const add = (key, d, min, title) => { const at = atStr(d, Math.max(0, min)); if (at > nowS) out.push({ key, at, title: clean(title) }); };
+    for (let i = 0; i < 14; i++) {
+      const d = addDays(today(), i), parts = [];
+      eventsOn(d).forEach((e) => { parts.push(e.title + " " + hm(toMin(e.start))); add("ev|" + e.id + "|" + d + "|" + e.start, d, toMin(e.start) - (+r.before || 0), e.title + " a las " + hm(toMin(e.start))); });
+      state.plans.filter((p) => !p.done && p.due === d).forEach((p) => { parts.push(p.kind.toLowerCase() + " " + p.title); add("pl|" + p.id + "|" + d, addDays(d, -1), 20 * 60, "Mañana: " + p.kind.toLowerCase() + " · " + p.title); });
+      fixedOn(ymOf(d)).filter((x) => x.date === d && !x.paid).forEach((x) => { parts.push(x.f.name + (x.amount ? " " + eur(x.amount) : "")); add("fx|" + x.f.id + "|" + d, addDays(d, -1), mor, "Mañana te cobran " + x.f.name + (x.amount ? " · " + eur(x.amount) : "")); });
+      state.notes.filter((n) => !n.done && n.due === d).forEach((n) => parts.push(n.text));
+      let study = 0; state.plans.filter((p) => !p.done).forEach((p) => p.steps.forEach((st) => { if (!st.done && st.day === d) study += durOf(st); }));
+      if (study) parts.push(fdur(study) + " de estudio");
+      if (parts.length) add("sum|" + d, d, mor, "Hoy: " + parts.join(" · "));
+    }
+    return out.sort((a, b) => a.at.localeCompare(b.at));
+  }
+  const pendingReminders = () => buildReminders().filter((x) => !RM().sent[x.key]);
+  function openShortcut(lines) {
+    location.href = "shortcuts://run-shortcut?name=" + encodeURIComponent(RM().name || "Mi pared") + "&input=text&text=" + encodeURIComponent(lines.join("\n"));
+  }
+  function sendReminders(all) {
+    const list = all ? buildReminders() : pendingReminders();
+    if (!list.length) { toast("No hay avisos nuevos que enviar."); return; }
+    list.forEach((x) => { RM().sent[x.key] = today(); });
+    // limpia marcas antiguas
+    Object.keys(RM().sent).forEach((k) => { if (RM().sent[k] < addDays(today(), -30)) delete RM().sent[k]; });
+    save(); render();
+    openShortcut(list.map((x) => x.title + "|" + x.at));
+  }
+  function renderRemind() {
+    const r = RM(), pend = pendingReminders();
+    $("rStatus").textContent = r.ready ? (pend.length ? pend.length + " avisos nuevos listos para enviar." : "Todo enviado. Al apuntar algo nuevo te saldrá el botón en Inicio.") : "Todavía no has confirmado que el atajo funciona.";
+    $("iRemind").innerHTML = !r.ready ? '<div class="alert note-ok" style="background:var(--p-lila);color:var(--ink)"><b style="color:var(--ink)">Activa los avisos</b><span>Para que el iPhone te avise de citas, entregas y recibos aunque no abras la app. <button class="link" type="button" data-go="ajustes">Configurar</button></span></div>' :
+      pend.length ? '<div class="alert note-ok" style="background:var(--p-lila);color:var(--ink)"><b style="color:var(--ink)">' + pend.length + (pend.length === 1 ? " aviso nuevo" : " avisos nuevos") + '</b><span>Mándalos a Recordatorios para que te lleguen a su hora.</span><div class="chips" style="padding-top:4px"><button class="btn dark sm" type="button" id="rSend">Enviar a Recordatorios</button></div></div>' : "";
+  }
+  function fillRemind() {
+    const r = RM();
+    $("rName").value = r.name; $("rMorning").value = r.morning; $("rBefore").value = r.before; $("howName").textContent = r.name;
+    $("rName").onchange = () => { r.name = $("rName").value.trim() || "Mi pared"; $("howName").textContent = r.name; save(); };
+    $("rMorning").onchange = () => { r.morning = $("rMorning").value || "07:30"; save(); render(); };
+    $("rBefore").onchange = () => { r.before = Math.max(0, +$("rBefore").value || 0); save(); render(); };
+    $("rTest").onclick = () => { const n = new Date(Date.now() + 2 * 60000); openShortcut(["Prueba de " + (r.name || "Mi pared") + ": los avisos funcionan|" + iso(n) + " " + pad(n.getHours()) + ":" + pad(n.getMinutes())]); };
+    $("rReady").onclick = () => { r.ready = true; save(); render(); toast("¡Listo! Te saldrá un botón en Inicio cuando haya avisos nuevos."); };
+    $("rResend").onclick = () => { if (!r.ready) { toast("Primero comprueba el atajo con el aviso de prueba."); return; } sendReminders(true); };
+  }
+  document.addEventListener("click", (e) => { if (e.target.id === "rSend") sendReminders(false); });
+
   // ---------- avisos ----------
   let tT;
   function toast(msg) { toastAct(msg); }
@@ -1364,6 +1489,7 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
   if (state.schedV !== 2 || state.sample) { scheduleAll(today()); state.schedV = 2; }
   save();
   fillSched();
+  fillRemind();
   route();
   render();
   let lastDay = today();
