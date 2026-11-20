@@ -1409,6 +1409,8 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
   // ---------- avisos en Recordatorios (vía Atajos) ----------
   function RM() { if (!state.remind) state.remind = { name: "Mi pared", morning: "07:30", before: 60, ready: false, sent: {} }; return state.remind; }
   const atStr = (d, min) => d + " " + pad(Math.floor(min / 60)) + ":" + pad(min % 60);
+  // Atajos en español entiende mejor "20/11/2026 21:15"
+  const esStr = (at) => { const [d, t] = at.split(" "), [y, m, dd] = d.split("-"); return dd + "/" + m + "/" + y + " " + t; };
   const clean = (t) => String(t).replace(/[|\n\r]+/g, " ").trim().slice(0, 140);
   // Avisos de las próximas 2 semanas: resumen de la mañana, citas, entregas y recibos.
   function buildReminders() {
@@ -1437,7 +1439,7 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
     // limpia marcas antiguas
     Object.keys(RM().sent).forEach((k) => { if (RM().sent[k] < addDays(today(), -30)) delete RM().sent[k]; });
     save(); render();
-    openShortcut(list.map((x) => x.title + "|" + x.at));
+    openShortcut(list.map((x) => x.title + "|" + esStr(x.at)));
   }
   function renderRemind() {
     const r = RM(), pend = pendingReminders();
@@ -1451,7 +1453,7 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
     $("rName").onchange = () => { r.name = $("rName").value.trim() || "Mi pared"; $("howName").textContent = r.name; save(); };
     $("rMorning").onchange = () => { r.morning = $("rMorning").value || "07:30"; save(); render(); };
     $("rBefore").onchange = () => { r.before = Math.max(0, +$("rBefore").value || 0); save(); render(); };
-    $("rTest").onclick = () => { const n = new Date(Date.now() + 2 * 60000); openShortcut(["Prueba de " + (r.name || "Mi pared") + ": los avisos funcionan|" + iso(n) + " " + pad(n.getHours()) + ":" + pad(n.getMinutes())]); };
+    $("rTest").onclick = () => { const n = new Date(Date.now() + 2 * 60000); openShortcut(["Prueba de " + (r.name || "Mi pared") + ": los avisos funcionan|" + esStr(iso(n) + " " + pad(n.getHours()) + ":" + pad(n.getMinutes()))]); };
     $("rReady").onclick = () => { r.ready = true; save(); render(); toast("¡Listo! Te saldrá un botón en Inicio cuando haya avisos nuevos."); };
     $("rResend").onclick = () => { if (!r.ready) { toast("Primero comprueba el atajo con el aviso de prueba."); return; } sendReminders(true); };
   }
