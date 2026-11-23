@@ -1439,7 +1439,7 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
     // limpia marcas antiguas
     Object.keys(RM().sent).forEach((k) => { if (RM().sent[k] < addDays(today(), -30)) delete RM().sent[k]; });
     save(); render();
-    openShortcut(list.map((x) => x.title + "|" + esStr(x.at)));
+    openShortcut(list.map((x) => x.title + " | " + esStr(x.at)));
   }
   function renderRemind() {
     const r = RM(), pend = pendingReminders();
@@ -1453,7 +1453,7 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
     $("rName").onchange = () => { r.name = $("rName").value.trim() || "Mi pared"; $("howName").textContent = r.name; save(); };
     $("rMorning").onchange = () => { r.morning = $("rMorning").value || "07:30"; save(); render(); };
     $("rBefore").onchange = () => { r.before = Math.max(0, +$("rBefore").value || 0); save(); render(); };
-    $("rTest").onclick = () => { const n = new Date(Date.now() + 2 * 60000); openShortcut(["Prueba de " + (r.name || "Mi pared") + ": los avisos funcionan|" + esStr(iso(n) + " " + pad(n.getHours()) + ":" + pad(n.getMinutes()))]); };
+    $("rTest").onclick = () => { const n = new Date(Date.now() + 2 * 60000); openShortcut(["Prueba de " + (r.name || "Mi pared") + ": los avisos funcionan | " + esStr(iso(n) + " " + pad(n.getHours()) + ":" + pad(n.getMinutes()))]); };
     $("rReady").onclick = () => { r.ready = true; save(); render(); toast("¡Listo! Te saldrá un botón en Inicio cuando haya avisos nuevos."); };
     $("rResend").onclick = () => { if (!r.ready) { toast("Primero comprueba el atajo con el aviso de prueba."); return; } sendReminders(true); };
   }
