@@ -362,8 +362,9 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
         <li>Añade <b>Repetir con cada elemento</b>. Debe usar el <b>Texto dividido</b> del paso anterior.</li>
         <li>Dentro de la repetición, añade otra vez <b>Dividir texto</b>: texto <b>Elemento de repetición</b>, separador <b>Personalizado</b> y escribe <b>|</b> (la barra vertical).</li>
         <li>Añade <b>Obtener elemento de la lista</b> y elige <b>Primer elemento</b>. Es el título del aviso.</li>
-        <li>Añade otra vez <b>Obtener elemento de la lista</b>, elige <b>Último elemento</b> y cambia la lista por el <b>Texto dividido</b> del paso 4. Es la fecha y hora.</li>
-        <li>Añade <b>Añadir nuevo recordatorio</b>. En el título pon el resultado del paso 5. Toca <b>Mostrar más</b>, activa <b>Recordarme</b> → <b>En un día y hora</b> y pon el resultado del paso 6. Si quieres, elige una lista de Recordatorios.</li>
+        <li>Añade otra vez <b>Obtener elemento de la lista</b>, elige <b>Último elemento</b> y cambia la lista por el <b>Texto dividido</b> del paso 4. Son los minutos que faltan para el aviso.</li>
+        <li>Debajo, añade <b>Ajustar fecha</b>: <b>Añadir</b> [resultado del paso 6] <b>minutos</b> a <b>Fecha actual</b>.</li>
+        <li>Añade <b>Añadir nuevo recordatorio</b> (o <b>Nuevo recordatorio</b>). En el título pon el resultado del paso 5. En <b>Aviso</b> elige <b>A las</b> y pon la <b>Fecha ajustada</b>.</li>
         <li>Guarda el atajo, vuelve aquí y pulsa <b>Enviar aviso de prueba</b>. Si en 2 minutos te llega, pulsa <b>Ya funciona</b>.</li>
       </ol>
     </details>
@@ -1410,6 +1411,8 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
   function RM() { if (!state.remind) state.remind = { name: "Mi pared", morning: "07:30", before: 60, ready: false, sent: {} }; return state.remind; }
   const atStr = (d, min) => d + " " + pad(Math.floor(min / 60)) + ":" + pad(min % 60);
   // Atajos en español entiende mejor "20/11/2026 21:15"
+  // Minutos desde ahora hasta el aviso: el atajo los suma a la hora actual (no tiene que leer fechas).
+  const minsUntil = (at) => { const [d, t] = at.split(" "), [y, m, dd] = d.split("-").map(Number), [h, mi] = t.split(":").map(Number); return Math.max(1, Math.round((new Date(y, m - 1, dd, h, mi) - new Date()) / 60000)); };
   const esStr = (at) => { const [d, t] = at.split(" "), [y, m, dd] = d.split("-"); return dd + "/" + m + "/" + y + " " + t; };
   const clean = (t) => String(t).replace(/[|\n\r]+/g, " ").trim().slice(0, 140);
   // Avisos de las próximas 2 semanas: resumen de la mañana, citas, entregas y recibos.
@@ -1439,7 +1442,7 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
     // limpia marcas antiguas
     Object.keys(RM().sent).forEach((k) => { if (RM().sent[k] < addDays(today(), -30)) delete RM().sent[k]; });
     save(); render();
-    openShortcut(list.map((x) => x.title + " | " + esStr(x.at)));
+    openShortcut(list.map((x) => x.title + " | " + minsUntil(x.at)));
   }
   function renderRemind() {
     const r = RM(), pend = pendingReminders();
@@ -1453,7 +1456,7 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
     $("rName").onchange = () => { r.name = $("rName").value.trim() || "Mi pared"; $("howName").textContent = r.name; save(); };
     $("rMorning").onchange = () => { r.morning = $("rMorning").value || "07:30"; save(); render(); };
     $("rBefore").onchange = () => { r.before = Math.max(0, +$("rBefore").value || 0); save(); render(); };
-    $("rTest").onclick = () => { const n = new Date(Date.now() + 2 * 60000); openShortcut(["Prueba de " + (r.name || "Mi pared") + ": los avisos funcionan | " + esStr(iso(n) + " " + pad(n.getHours()) + ":" + pad(n.getMinutes()))]); };
+    $("rTest").onclick = () => { openShortcut(["Prueba de " + (r.name || "Mi pared") + ": los avisos funcionan | 2"]); };
     $("rReady").onclick = () => { r.ready = true; save(); render(); toast("¡Listo! Te saldrá un botón en Inicio cuando haya avisos nuevos."); };
     $("rResend").onclick = () => { if (!r.ready) { toast("Primero comprueba el atajo con el aviso de prueba."); return; } sendReminders(true); };
   }
