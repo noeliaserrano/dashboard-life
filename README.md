@@ -10,3 +10,4 @@ Agenda personal para el móvil: pósits por semanas, estudio, agenda y dinero en
 - **+ Añadir:** una caja que entiende «café 2,80», «dentista el jueves a las 6», «examen el 25/11» o «llamar al banco».
 
 Los datos se guardan solo en el navegador del móvil. Usa Ajustes → Guardar copia de vez en cuando.
+- **Casa (compartida con tu pareja):** menú semanal, lista de la compra, recetas, pósits de casa y gastos comunes con reparto mensual. Se sincroniza cifrado de extremo a extremo; ver [supabase/COMO-CONECTAR.md](supabase/COMO-CONECTAR.md).

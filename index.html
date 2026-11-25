@@ -205,8 +205,8 @@ textarea { height: auto; min-height: 70px; resize: vertical; }
 /* menú, botón flotante, avisos */
 nav.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-top: 1px solid var(--line);
   padding: 6px max(8px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)); }
-nav.tabs .in { max-width: 640px; margin: 0 auto; display: grid; grid-template-columns: repeat(5, 1fr); }
-nav.tabs a { position: relative; text-decoration: none; color: var(--faint); font-weight: 800; font-size: 12px; white-space: nowrap; text-align: center; padding: 10px 2px; border-radius: 12px; }
+nav.tabs .in { max-width: 640px; margin: 0 auto; display: grid; grid-template-columns: repeat(var(--tabs, 6), 1fr); }
+nav.tabs a { position: relative; text-decoration: none; color: var(--faint); font-weight: 800; font-size: 11px; white-space: nowrap; text-align: center; padding: 10px 2px; border-radius: 12px; }
 nav.tabs a[aria-current="page"] { color: var(--ink); background: var(--soft); }
 .badge { display: inline-block; vertical-align: 1px; margin-left: 3px; min-width: 16px; padding: 0 4px; border-radius: 999px; background: var(--ink); color: #fff; font-size: 10px; line-height: 16px; }
 .badge.warn { background: var(--over); }
@@ -221,6 +221,32 @@ dialog::backdrop { background: rgba(43,37,64,.35); }
 dialog .in { padding: 18px; display: grid; gap: 12px; }
 .sample { background: var(--pend-bg); color: var(--pend); border-radius: 14px; padding: 10px 12px; font-size: 13px; font-weight: 700; display: flex; justify-content: space-between; gap: 10px; align-items: center; flex-wrap: wrap; }
 
+/* casa */
+.subtabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.subtabs::-webkit-scrollbar { display: none; }
+.subtabs .chip { white-space: nowrap; }
+.meal { display: grid; grid-template-columns: 64px 1fr; gap: 8px; align-items: center; }
+.meal .d { font-size: 12px; font-weight: 800; color: var(--muted); line-height: 1.2; }
+.meal .d b { display: block; font-size: 15px; color: var(--ink); }
+.meal.today .d b { text-decoration: underline; text-underline-offset: 3px; }
+.meal .slots { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.meal input { height: 40px; font-size: 14px; }
+.shop { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; font-weight: 700; font-size: 14px; padding: 6px 0; border-bottom: 1px solid #f3eff7; }
+.shop.done .t { text-decoration: line-through; color: var(--faint); }
+.shop small { display: block; font-size: 11px; color: var(--muted); font-weight: 600; }
+.recipe { padding: 0; gap: 0; overflow: hidden; }
+.recipe-head { width: 100%; border: 0; background: none; text-align: left; padding: 14px; display: flex; justify-content: space-between; gap: 8px; font-weight: 800; font-size: 15px; }
+.recipe-body { padding: 0 14px 14px; display: grid; gap: 8px; font-size: 14px; }
+.recipe-body ul { margin: 0; padding-left: 18px; }
+.who { display: inline-flex; gap: 6px; }
+.bal { font-size: 18px; font-weight: 800; }
+.bal.owe { color: var(--over); } .bal.ok { color: var(--ok); }
+.hx { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; font-size: 13px; font-weight: 700; padding: 7px 0; border-bottom: 1px solid #f3eff7; }
+.hx small { display: block; font-size: 11px; color: var(--muted); font-weight: 600; }
+.hfix { display: grid; grid-template-columns: 1fr 110px; gap: 8px; align-items: center; font-size: 14px; font-weight: 700; }
+.hfix small { display: block; font-size: 11px; color: var(--muted); font-weight: 600; }
+.sync-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--faint); margin-right: 6px; }
+.sync-dot.on { background: #5fb24a; } .sync-dot.err { background: var(--over); }
 @media (prefers-reduced-motion: reduce) { *, *::after { animation: none !important; transition: none !important; } }
 </style>
 </head>
@@ -238,6 +264,7 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
   <div id="iRemind"></div>
   <div class="sec">Tus pósits de hoy</div>
   <div class="view" style="gap:8px" id="iPosits"></div>
+  <div id="iHome"></div>
   <div class="sec" id="iDayLbl">Tu día</div>
   <div id="iDayNote"></div>
   <div class="tl" id="iTimeline"></div>
@@ -326,9 +353,29 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
   <div class="card" id="mTx"></div>
 </section>
 
+<!-- ================= CASA (compartido) ================= -->
+<section class="view" data-view="casa" hidden>
+  <div class="top"><div><div class="lbl" id="cSub">Lo común de los dos</div><h1>Casa</h1></div><span class="lbl" id="cSync"></span></div>
+  <div class="subtabs" id="cTabs">
+    <button type="button" class="chip" data-ctab="menu">Menú</button>
+    <button type="button" class="chip" data-ctab="compra">Compra</button>
+    <button type="button" class="chip" data-ctab="recetas">Recetas</button>
+    <button type="button" class="chip" data-ctab="gastos">Gastos</button>
+    <button type="button" class="chip" data-ctab="posits">Pósits de casa</button>
+  </div>
+  <div class="view" id="cBody"></div>
+  <datalist id="recipeNames"></datalist>
+</section>
+
 <!-- ================= AJUSTES ================= -->
 <section class="view" data-view="ajustes" hidden>
   <div class="top"><div><button class="btn ghost sm" type="button" data-go="inicio">‹ Volver</button><h1>Ajustes</h1></div></div>
+  <div class="card" id="cloudCard"></div>
+  <div class="card">
+    <div class="card-h">Secciones que uso</div>
+    <div class="chips"><button type="button" class="chip" id="prefStudy" aria-pressed="true">Estudio</button></div>
+    <p class="xs muted">Si no estudias, quita Estudio del menú. Cada perfil tiene su propia configuración.</p>
+  </div>
   <div class="card">
     <div class="card-h">Trabajo</div>
     <div class="daypick" id="sWorkDays"></div>
@@ -394,6 +441,7 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
   <a href="#estudio" data-tab="estudio">Estudio<span class="badge" id="bEstudio"></span></a>
   <a href="#agenda" data-tab="agenda">Agenda</a>
   <a href="#dinero" data-tab="dinero">Dinero<span class="badge" id="bDinero"></span></a>
+  <a href="#casa" data-tab="casa">Casa<span class="badge" id="bCasa"></span></a>
 </div></nav>
 
 <dialog id="capDlg">
@@ -491,7 +539,7 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
   ["plans", "daysOff", "events", "notes"].forEach((k) => { if (!Array.isArray(state[k])) state[k] = []; });
   if (!state.weekColor) state.weekColor = {};
   if (!state.routines) state.routines = {};
-  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} if (typeof cloudDirty === "function") cloudDirty(); };
   function colorIdx(wk) {
     if (state.weekColor[wk] != null) return state.weekColor[wk];
     const known = Object.keys(state.weekColor).filter((k) => k < wk).sort();
@@ -974,7 +1022,7 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
   let selDay = today(), agWeek = monday(today()), moneyYM = ymOf(today()), openCat = null, openTx = null, fixedEdit = false, offKind = "rest", openFx = null, agMode = "week", agMonth = ymOf(today()), agSel = today();
 
   function render() {
-    renderInicio(); renderPosits(); renderEstudio(); renderAgenda(); renderDinero(); renderBadges(); renderRemind();
+    applyPrefs(); renderInicio(); renderHomeToday(); renderPosits(); renderEstudio(); renderAgenda(); renderDinero(); renderCasa(); renderCloud(); renderBadges(); renderRemind();
   }
   function renderBadges() {
     $("bPosits").textContent = state.notes.filter((n) => !n.done).length || "";
@@ -1176,12 +1224,13 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
     if (!m.income) {
       $("mSummary").innerHTML = '<div class="card-h">Tu ingreso mensual</div><p class="small muted">Con él calculo lo que te queda después de los gastos fijos y reparto el presupuesto de tus categorías.</p><div class="g2"><input type="number" id="incomeIn" inputmode="decimal" placeholder="Ej. 1400"><button class="btn dark" type="button" id="incomeSave">Guardar</button></div>';
     } else {
-      const left = b.avail - sp, pct = b.avail > 0 ? Math.min(100, sp / b.avail * 100) : 100;
+      const hb = houseBalance(ym), houseShare = Math.round((hb.share[me()] || 0) * 100) / 100;
+      const left = b.avail - sp - houseShare, pct = b.avail > 0 ? Math.min(100, (sp + houseShare) / b.avail * 100) : 100;
       const st = left < 0 ? ["late", "Te has pasado"] : pct > 85 && isNow ? ["tight", "Ojo, vas justa"] : ["ok", "Vas bien"];
       $("mSummary").innerHTML = '<div class="card-h"><span><span class="big">' + eur(Math.round(sp)) + '</span> <span class="lbl">de ' + eur(Math.round(b.avail)) + '</span></span><span class="pill ' + st[0] + '">' + st[1] + "</span></div>" +
         '<div class="bar" style="--c:' + (left < 0 ? "var(--over)" : "var(--ink)") + '"><i style="width:' + pct + '%"></i></div>' +
         '<div class="sum"><span>Ingreso</span><span class="n"><button class="link" type="button" id="incomeEdit">' + eur(b.income) + "</button></span><span>Gastos fijos de " + monthName(ym).toLowerCase() + '</span><span class="n">− ' + eur(b.fixed) + "</span>" +
-        '<span class="tot">Te queda para el mes</span><span class="n tot">' + eur(b.avail) + "</span><span>Gastado en categorías</span><span class=\"n\">− " + eur(sp) + '</span><span class="tot">Disponible ahora</span><span class="n tot" style="color:' + (left < 0 ? "var(--over)" : "var(--ok)") + '">' + eur(left) + "</span></div>" +
+        '<span class="tot">Te queda para el mes</span><span class="n tot">' + eur(b.avail) + "</span><span>Gastado en categorías</span><span class=\"n\">− " + eur(sp) + "</span>" + (houseShare ? '<span>Tu parte de la casa</span><span class="n">− ' + eur(houseShare) + "</span>" : "") + '<span class="tot">Disponible ahora</span><span class="n tot" style="color:' + (left < 0 ? "var(--over)" : "var(--ok)") + '">' + eur(left) + "</span></div>" +
         (m.fixed.some((f) => f.amount == null || f.amount === "") ? '<p class="xs" style="color:var(--pend)">Hay gastos fijos sin importe. Toca cada uno abajo para poner el importe y el día.</p>' : "") +
         (b.over ? '<p class="xs" style="color:var(--over)">Tus límites suman más de lo que te queda tras los fijos.</p>' : "");
     }
@@ -1403,7 +1452,8 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
   $("wipeBtn").onclick = () => {
     if (!wipeArmed) { wipeArmed = true; $("wipeBtn").textContent = state.sample ? "Pulsa otra vez: se borran los ejemplos" : "Pulsa otra vez: se borra todo"; return; }
     const sched = state.sched, money = defaultMoney(false); money.income = state.sample ? null : state.money.income;
-    state = { v: 3, sample: false, weekColor: {}, notes: [], plans: [], plansV: 1, daysOff: [], events: [], routines: {}, sched, schedV: 2, money };
+    const home = state.sample ? defaultHome(false) : state.home, myRole = state.myRole || "A", prefs = state.prefs || {};
+    state = { v: 3, sample: false, weekColor: {}, notes: [], plans: [], plansV: 1, daysOff: [], events: [], routines: {}, sched, schedV: 2, money, home, myRole, prefs };
     wipeArmed = false; $("wipeBtn").textContent = "Borrar los datos de ejemplo"; save(); render(); go("inicio"); toast("Listo. Empieza con lo tuyo.");
   };
 
@@ -1471,8 +1521,394 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
     if (label) $("toastBtn").onclick = () => { t.hidden = true; fn(); };
   }
 
+
+  // =====================================================================
+  // CASA · lo común de los dos (menú, compra, recetas, gastos, pósits)
+  // Cada registro compartido lleva id, u (última modificación) y del (borrado),
+  // para poder mezclar sin perder nada lo que apunta cada uno desde su móvil.
+  // =====================================================================
+  const now = () => Date.now();
+  const HCATS = { compra: "Compra", restaurante: "Restaurante", cafe: "Cafetería", ocio: "Ocio juntos", suministros: "Recibos de casa", casa: "Otros de casa" };
+  function defaultHome(sample) {
+    const t = today(), h = { notes: [], shop: [], recipes: [], meals: {}, hexp: [], fixed: [], split: { A: 50, u: 0 }, names: { A: "Yo", B: "Pareja", uA: 0, uB: 0 } };
+    ["Luz", "Agua", "Gas", "Internet"].forEach((n) => h.fixed.push({ id: uid(), name: n, payer: "B", u: 1 }));
+    if (sample) {
+      const ym = ymOf(t), A = "A", B = "B";
+      h.recipes.push({ id: uid(), u: 1, name: "Lentejas", ing: "Lentejas\nZanahoria\nChorizo\nPimiento\nCebolla", notes: "Para 2 días" });
+      h.recipes.push({ id: uid(), u: 1, name: "Pasta con pesto", ing: "Pasta\nPesto\nTomates cherry\nParmesano", notes: "" });
+      h.meals[t] = { c: { t: "Lentejas", u: 1 }, n: { t: "Tortilla y ensalada", u: 1 } };
+      h.meals[addDays(t, 1)] = { c: { t: "Lentejas", u: 1 }, n: { t: "Pasta con pesto", u: 1 } };
+      ["Leche", "Huevos", "Pan", "Plátanos"].forEach((x) => h.shop.push({ id: uid(), u: 1, text: x, done: false }));
+      h.notes.push({ id: uid(), u: 1, text: "Cambiar la bombilla del baño", week: monday(t), created: t, done: false });
+      [[3, "compra", A, 64.2, "Mercadona"], [8, "compra", A, 41.5, "Lidl"], [6, "restaurante", B, 38, "Cena fuera"], [10, "cafe", A, 6.4, "Cafés"]].forEach(([d, c, pb, a, n]) => {
+        const dd = ym + "-" + pad(Math.min(d, 28)); h.hexp.push({ id: uid(), u: 1, date: dd <= t ? dd : t, cat: c, paidBy: pb, amount: a, note: n });
+      });
+      [["Luz", 58.3], ["Agua", 22.1], ["Internet", 35]].forEach(([n, a]) => { const f = h.fixed.find((x) => x.name === n); h.hexp.push({ id: uid(), u: 1, date: ym + "-01", cat: "suministros", paidBy: "B", amount: a, note: n, fx: f.id }); });
+    }
+    return h;
+  }
+  const H = () => state.home;
+  const emptyHome = () => ({ notes: [], shop: [], recipes: [], meals: {}, hexp: [], fixed: [], split: { A: 50, u: 0 }, names: { A: "Yo", B: "Pareja", uA: 0, uB: 0 } });
+  const setName = (r, n) => { H().names = Object.assign({}, H().names, { [r]: n, ["u" + r]: now() }); };
+  const me = () => state.myRole || "A";
+  const other = (r) => (r === "A" ? "B" : "A");
+  const nameOf = (r) => (r === me() ? "Tú" : (H().names[r] || "Pareja"));
+  const alive = (arr) => arr.filter((x) => !x.del);
+  const touch = (o) => { o.u = now(); return o; };
+  let cTab = "menu", cWeek = monday(today()), cYM = ymOf(today()), openRecipe = null, editRecipe = null, hPayer = null, hCat = null, hDel = null;
+
+  function renderCasa() {
+    if (!H()) return;
+    document.querySelectorAll("[data-ctab]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.ctab === cTab));
+    const partner = H().names[other(me())] || "tu pareja";
+    $("cSub").textContent = "Compartido con " + partner;
+    $("recipeNames").innerHTML = alive(H().recipes).map((r) => '<option value="' + esc(r.name) + '">').join("");
+    const body = { menu: casaMenu, compra: casaCompra, recetas: casaRecetas, gastos: casaGastos, posits: casaPosits }[cTab]();
+    if ($("cBody")._tab !== cTab || !$("cBody").contains(document.activeElement)) { $("cBody").innerHTML = body; $("cBody")._tab = cTab; }
+  }
+  function casaMenu() {
+    let h = '<div class="top"><span class="lbl">Semana del ' + parse(cWeek).getDate() + " " + MON[parse(cWeek).getMonth()] + '</span><div class="monthnav"><button type="button" data-cweek="-1" aria-label="Semana anterior">‹</button><button type="button" data-cweek="1" aria-label="Semana siguiente">›</button></div></div>';
+    h += '<div class="card"><div class="meal"><span></span><div class="slots"><span class="xs muted" style="font-weight:800">COMIDA</span><span class="xs muted" style="font-weight:800">CENA</span></div></div>';
+    for (let i = 0; i < 7; i++) {
+      const d = addDays(cWeek, i), m = H().meals[d] || {};
+      h += '<div class="meal' + (d === today() ? " today" : "") + '"><span class="d">' + DOW[parse(d).getDay()] + "<b>" + parse(d).getDate() + '</b></span><div class="slots">' +
+        ["c", "n"].map((k) => '<input type="text" list="recipeNames" data-meal="' + d + "|" + k + '" value="' + esc((m[k] && m[k].t) || "") + '" placeholder="' + (k === "c" ? "Comida" : "Cena") + '" aria-label="' + (k === "c" ? "Comida" : "Cena") + " " + fmt(d) + '">').join("") + "</div></div>";
+    }
+    h += '<p class="xs muted">Escribe el plato o elige una receta. Lo ve también tu pareja.</p></div>';
+    return h;
+  }
+  function casaCompra() {
+    const items = alive(H().shop).sort((a, b) => (a.done - b.done) || (b.u - a.u));
+    const pend = items.filter((x) => !x.done).length;
+    return '<form class="capture" id="shopForm" autocomplete="off"><div class="cap-row"><input type="text" id="shopIn" placeholder="leche, huevos, pan…" aria-label="Añadir a la compra" enterkeyhint="done"><button class="btn dark sm" type="submit">Añadir</button></div></form>' +
+      '<div class="card"><div class="card-h"><span>Lista de la compra</span><span class="lbl">' + pend + (pend === 1 ? " cosa" : " cosas") + "</span></div>" +
+      (items.map((x) => '<div class="shop' + (x.done ? " done" : "") + '"><button class="ck" type="button" data-shop="' + x.id + '" aria-pressed="' + !!x.done + '" aria-label="Comprado">' + (x.done ? "✓" : "") + '</button><span class="t">' + esc(x.text) + (x.by ? "<small>" + esc(nameOf(x.by)) + "</small>" : "") + '</span><button class="x" type="button" data-shopdel="' + x.id + '" aria-label="Quitar">✕</button></div>').join("") || '<p class="small muted">La lista está vacía.</p>') +
+      (items.some((x) => x.done) ? '<div class="chips"><button class="btn sm" type="button" id="shopClear">Quitar lo comprado</button></div>' : "") + "</div>";
+  }
+  function casaRecetas() {
+    const list = alive(H().recipes).sort((a, b) => a.name.localeCompare(b.name));
+    let h = '<div class="chips"><button class="btn dark sm" type="button" data-recnew="1">+ Nueva receta</button></div>';
+    if (editRecipe) {
+      const r = editRecipe === "new" ? { name: "", ing: "", notes: "" } : H().recipes.find((x) => x.id === editRecipe);
+      h += '<div class="card"><label class="field">Nombre<input type="text" id="recName" value="' + esc(r.name) + '"></label><label class="field">Ingredientes (uno por línea)<textarea id="recIng" rows="6">' + esc(r.ing) + '</textarea></label><label class="field">Notas<textarea id="recNotes" rows="2">' + esc(r.notes || "") + '</textarea></label><div class="chips"><button class="btn dark sm" type="button" data-recsave="' + (editRecipe) + '">Guardar</button><button class="btn sm" type="button" data-reccancel="1">Cancelar</button></div></div>';
+    }
+    h += list.map((r) => {
+      const open = openRecipe === r.id, ing = r.ing.split("\n").map((x) => x.trim()).filter(Boolean);
+      return '<div class="card recipe"><button class="recipe-head" type="button" data-recopen="' + r.id + '"><span>' + esc(r.name) + '</span><span class="lbl">' + ing.length + " ingredientes</span></button>" +
+        (open ? '<div class="recipe-body"><ul>' + ing.map((x) => "<li>" + esc(x) + "</li>").join("") + "</ul>" + (r.notes ? '<p class="small muted">' + esc(r.notes) + "</p>" : "") +
+          '<div class="chips"><button class="btn dark sm" type="button" data-recshop="' + r.id + '">Añadir a la compra</button><button class="btn sm" type="button" data-recedit="' + r.id + '">Editar</button><button class="btn sm danger" type="button" data-recdel="' + r.id + '">' + (hDel === r.id ? "¿Seguro?" : "Borrar") + "</button></div></div>" : "") + "</div>";
+    }).join("") || (editRecipe ? "" : '<div class="empty"><b>Sin recetas</b>Guarda vuestros platos de siempre para el menú y la compra.</div>');
+    return h;
+  }
+  // Reparto del mes: lo común se reparte según el porcentaje; cada uno ha puesto lo que pagó.
+  function houseBalance(ym) {
+    const ex = alive(H().hexp).filter((x) => x.date.startsWith(ym));
+    const common = ex.filter((x) => x.cat !== "ajuste");
+    const total = common.reduce((a, x) => a + (+x.amount || 0), 0);
+    const paid = { A: 0, B: 0 }; common.forEach((x) => { paid[x.paidBy] = (paid[x.paidBy] || 0) + (+x.amount || 0); });
+    const pctA = (H().split && H().split.A != null ? +H().split.A : 50) / 100;
+    const share = { A: total * pctA, B: total * (1 - pctA) };
+    let balA = paid.A - share.A;
+    ex.filter((x) => x.cat === "ajuste").forEach((x) => { balA += x.paidBy === "A" ? +x.amount : -x.amount; });
+    const byCat = {}; common.forEach((x) => { byCat[x.cat] = (byCat[x.cat] || 0) + (+x.amount || 0); });
+    return { total, paid, share, balA: Math.round(balA * 100) / 100, byCat, ex };
+  }
+  function balanceText(b) {
+    const mine = me() === "A" ? b.balA : -b.balA;
+    if (Math.abs(mine) < 0.5) return ['<span class="bal ok">Estáis en paz</span>', ""];
+    return mine < 0 ? ['<span class="bal owe">Te toca aportar ' + eur(-mine) + "</span>", "a " + esc(H().names[other(me())] || "tu pareja")]
+      : ['<span class="bal ok">' + esc(H().names[other(me())] || "Tu pareja") + " te debe " + eur(mine) + "</span>", ""];
+  }
+  function casaGastos() {
+    const b = houseBalance(cYM), [bt, bs] = balanceText(b), pctMe = me() === "A" ? (+H().split.A) : 100 - (+H().split.A);
+    let h = '<div class="top"><span class="lbl">' + monthName(cYM) + '</span><div class="monthnav"><button type="button" data-cym="-1" aria-label="Mes anterior">‹</button><button type="button" data-cym="1" aria-label="Mes siguiente">›</button></div></div>';
+    h += '<form class="capture" id="hxForm" autocomplete="off"><div class="cap-row"><input type="text" id="hxIn" placeholder="«súper 54,30» · «cena 38»…" aria-label="Gasto de casa" enterkeyhint="done"></div>' +
+      '<div class="preview" id="hxPrev" hidden></div><div class="cap-act" id="hxAct" hidden><span class="small muted">Pagó:</span>' + ["A", "B"].map((r) => '<button type="button" class="chip" data-hpay="' + r + '" aria-pressed="' + ((hPayer || me()) === r) + '">' + esc(nameOf(r)) + "</button>").join("") +
+      '</div><div class="chips" id="hxCats" hidden>' + Object.entries(HCATS).filter(([k]) => k !== "suministros").map(([k, l]) => '<button type="button" class="chip" data-hcat="' + k + '">' + l + "</button>").join("") + '</div><div class="cap-act" id="hxSave" hidden><button class="btn dark sm" type="submit">Guardar gasto</button></div></form>';
+    h += '<div class="card"><div class="card-h"><span>Reparto de ' + monthName(cYM).toLowerCase() + "</span><span class=\"lbl\">" + pctMe + " % tú</span></div>" + bt + (bs ? '<span class="small muted">' + bs + "</span>" : "") +
+      '<div class="sum"><span>Gasto común del mes</span><span class="n">' + eur(b.total) + "</span>" +
+      Object.entries(b.byCat).map(([k, v]) => '<span class="muted">· ' + HCATS[k] + '</span><span class="n muted">' + eur(v) + "</span>").join("") +
+      "<span>Has puesto tú</span><span class=\"n\">" + eur(b.paid[me()] || 0) + '</span><span>Ha puesto ' + esc(H().names[other(me())] || "tu pareja") + '</span><span class="n">' + eur(b.paid[other(me())] || 0) + "</span>" +
+      '<span>Lo que te corresponde (' + pctMe + ' %)</span><span class="n">' + eur(b.share[me()]) + "</span></div>" +
+      (Math.abs(b.balA) >= 0.5 ? '<div class="chips"><button class="btn sm" type="button" id="hSettle">Ya nos hemos pagado: saldar</button></div>' : "") + "</div>";
+    h += '<div class="card"><div class="card-h"><span>Recibos de casa de ' + monthName(cYM).toLowerCase() + '</span></div><p class="xs muted">Apunta lo que llega en cada recibo. La hipoteca no cuenta.</p>' +
+      alive(H().fixed).map((f) => { const x = alive(H().hexp).find((e) => e.fx === f.id && e.date.startsWith(cYM));
+        return '<div class="hfix"><span>' + esc(f.name) + "<small>paga " + esc(nameOf(f.payer)) + '</small></span><input type="text" inputmode="decimal" data-hfx="' + f.id + '" value="' + (x ? String(x.amount).replace(".", ",") : "") + '" placeholder="€"></div>'; }).join("") +
+      '<div class="chips"><button class="btn sm" type="button" id="hFixAdd">+ Otro recibo</button></div></div>';
+    const list = b.ex.filter((x) => !x.fx).sort((a, c) => c.date.localeCompare(a.date) || c.u - a.u);
+    h += '<div class="card"><div class="card-h"><span>Gastos comunes</span><span class="lbl">' + list.length + "</span></div>" + (list.map((x) => '<div class="hx"><span>' + esc(x.note || HCATS[x.cat] || "Pago") + "<small>" + (x.cat === "ajuste" ? esc(nameOf(x.paidBy)) + " → " + esc(nameOf(other(x.paidBy))) + " · saldar" : HCATS[x.cat] + " · pagó " + esc(nameOf(x.paidBy))) + " · " + fmt(x.date) + '</small></span><span class="num">' + eur(x.amount) + '</span><button class="x" type="button" data-hxdel="' + x.id + '" aria-label="Borrar">' + (hDel === x.id ? "¿Borrar?" : "✕") + "</button></div>").join("") || '<p class="small muted">Nada apuntado este mes.</p>') + "</div>";
+    h += '<div class="card"><div class="card-h">Cómo repartís</div><label class="field">Tu parte de los gastos comunes (%)<input type="number" min="0" max="100" step="5" id="hSplit" value="' + pctMe + '"></label>' +
+      '<div class="g2"><label class="field">Tu nombre<input type="text" id="hNameMe" value="' + esc(H().names[me()] === "Yo" ? "" : H().names[me()] || "") + '" placeholder="Tu nombre"></label><label class="field">Tu pareja<input type="text" id="hNameOther" value="' + esc(H().names[other(me())] === "Pareja" ? "" : H().names[other(me())] || "") + '" placeholder="Su nombre"></label></div></div>';
+    return h;
+  }
+  function casaPosits() {
+    const list = alive(H().notes).filter((n) => !n.done).sort((a, b) => a.week.localeCompare(b.week));
+    const done = alive(H().notes).filter((n) => n.done).length;
+    return '<form class="capture" id="hnForm" autocomplete="off"><div class="cap-row"><input type="text" id="hnIn" placeholder="Cosas de casa: «arreglar la persiana»…" aria-label="Pósit de casa" enterkeyhint="done"><button class="btn dark sm" type="submit">Pegar</button></div></form>' +
+      (list.map((n) => '<div class="post" style="--c:' + colorOf(n.week).c + '"><span class="c"></span><span class="t">' + esc(n.text) + "<small>" + (n.by ? (n.by === me() ? "lo apuntaste tú" : "apuntó " + esc(nameOf(n.by))) : "") + (weeksAgo(n.week) ? " · " + weeksAgo(n.week) + (weeksAgo(n.week) === 1 ? " semana" : " semanas") : "") + '</small></span><span class="tgs">' + (weeksAgo(n.week) >= 2 ? '<span class="tg red">' + weeksAgo(n.week) + " sem</span>" : "") + '</span><button class="ck" type="button" data-hnote="' + n.id + '" aria-label="Hecho"></button></div>').join("") ||
+        '<div class="empty"><b>Nada pendiente en casa</b>Lo que apuntéis aquí lo veis y lo podéis tachar los dos.</div>') +
+      (done ? '<p class="xs muted">' + done + " hechos.</p>" : "");
+  }
+  function renderHomeToday() {
+    if (!H()) return;
+    const m = H().meals[today()] || {}, shop = alive(H().shop).filter((x) => !x.done).length, b = houseBalance(ymOf(today()));
+    const parts = [];
+    if (m.c && m.c.t) parts.push("Comida: <b>" + esc(m.c.t) + "</b>");
+    if (m.n && m.n.t) parts.push("Cena: <b>" + esc(m.n.t) + "</b>");
+    if (shop) parts.push(shop + (shop === 1 ? " cosa" : " cosas") + " en la compra");
+    const mine = me() === "A" ? b.balA : -b.balA;
+    if (mine <= -0.5) parts.push("este mes te toca aportar " + eur(-mine));
+    $("iHome").innerHTML = parts.length ? '<div class="card" style="gap:6px"><div class="card-h"><span>En casa hoy</span><button class="link small" type="button" data-go="casa">Ver</button></div><span class="small">' + parts.join(" · ") + "</span></div>" : "";
+  }
+  // --- acciones de casa ---
+  function hexpParse(raw) {
+    const e = parseExpense(raw), map = { super: "compra", fuera: "restaurante", cafe: "cafe", cooper: "casa", farmacia: "casa", compras: "casa", coche: "ocio", otros: "ocio" };
+    return { amount: e.amount, date: e.date, note: e.note, cat: hCat || map[e.cat] || "compra" };
+  }
+  function hxUpdate() {
+    const v = $("hxIn") ? $("hxIn").value.trim() : "";
+    ["hxPrev", "hxAct", "hxCats", "hxSave"].forEach((id) => { if ($(id)) $(id).hidden = !v; });
+    if (!v) return;
+    const e = hexpParse(v);
+    $("hxPrev").innerHTML = '<span class="big">' + (e.amount != null ? eur(e.amount) : "Falta el importe") + "</span><span class=\"small\">" + esc(e.note) + " · " + HCATS[e.cat] + " · " + (e.date === today() ? "hoy" : fmt(e.date)) + "</span>";
+    document.querySelectorAll("[data-hcat]").forEach((x) => x.setAttribute("aria-pressed", x.dataset.hcat === e.cat));
+  }
+  document.addEventListener("input", (e) => { if (e.target.id === "hxIn") hxUpdate(); });
+  document.addEventListener("submit", (e) => {
+    const f = e.target;
+    if (f.id === "shopForm") { e.preventDefault(); const v = $("shopIn").value.trim(); if (!v) return; v.split(/[,\n]+/).map((x) => x.trim()).filter(Boolean).forEach((t) => H().shop.push(touch({ id: uid(), text: cap1(t), done: false, by: me() }))); save(); $("cBody")._tab = null; renderCasa(); renderHomeToday(); setTimeout(() => $("shopIn") && $("shopIn").focus(), 30); }
+    else if (f.id === "hnForm") { e.preventDefault(); const v = $("hnIn").value.trim(); if (!v) return; H().notes.push(touch({ id: uid(), text: cap1(v), week: monday(today()), created: today(), done: false, by: me() })); save(); $("cBody")._tab = null; renderCasa(); toast("Pegado en la pared de casa."); }
+    else if (f.id === "hxForm") { e.preventDefault(); const v = $("hxIn").value.trim(), x = hexpParse(v); if (x.amount == null) return;
+      H().hexp.push(touch({ id: uid(), date: x.date, cat: x.cat, paidBy: hPayer || me(), amount: x.amount, note: x.note })); hCat = null; hPayer = null; save(); $("cBody")._tab = null; renderCasa(); renderHomeToday(); renderDinero(); toast("Gasto de casa guardado."); }
+  });
+  document.addEventListener("change", (e) => {
+    const el = e.target;
+    if (el.dataset && el.dataset.meal) { const [d, k] = el.dataset.meal.split("|"); H().meals[d] = H().meals[d] || {}; H().meals[d][k] = { t: el.value.trim(), u: now() }; save(); renderHomeToday(); }
+    else if (el.dataset && el.dataset.hfx) { const f = H().fixed.find((x) => x.id === el.dataset.hfx), v = String(el.value).replace(/\s|€/g, "").replace(",", "."), amt = v === "" ? null : parseFloat(v);
+      let x = H().hexp.find((e2) => e2.fx === f.id && e2.date.startsWith(cYM) && !e2.del);
+      if (amt == null || isNaN(amt)) { if (x) touch(Object.assign(x, { del: true })); }
+      else if (x) touch(Object.assign(x, { amount: amt, paidBy: f.payer }));
+      else H().hexp.push(touch({ id: uid(), date: cYM + "-01", cat: "suministros", paidBy: f.payer, amount: amt, note: f.name, fx: f.id }));
+      save(); $("cBody")._tab = null; renderCasa(); renderHomeToday(); renderDinero(); }
+    else if (el.id === "hSplit") { const v = Math.min(100, Math.max(0, +el.value || 0)); H().split = { A: me() === "A" ? v : 100 - v, u: now() }; save(); $("cBody")._tab = null; renderCasa(); renderDinero(); }
+    else if (el.id === "hNameMe" || el.id === "hNameOther") { const r = el.id === "hNameMe" ? me() : other(me()); setName(r, el.value.trim() || (r === "A" ? "Yo" : "Pareja")); save(); $("cBody")._tab = null; renderCasa(); }
+  });
+  document.addEventListener("click", (e) => {
+    const el = e.target.closest("[data-ctab],[data-cweek],[data-cym],[data-shop],[data-shopdel],[data-recnew],[data-recsave],[data-reccancel],[data-recopen],[data-recshop],[data-recedit],[data-recdel],[data-hpay],[data-hcat],[data-hxdel],[data-hnote],#shopClear,#hSettle,#hFixAdd,#prefStudy");
+    if (!el) return;
+    const ds = el.dataset, rerender = () => { $("cBody")._tab = null; renderCasa(); renderHomeToday(); };
+    if (el.id === "prefStudy") { state.prefs = state.prefs || {}; state.prefs.hideStudy = !state.prefs.hideStudy; save(); render(); return; }
+    if (ds.ctab) { cTab = ds.ctab; hDel = null; rerender(); return; }
+    if (ds.cweek) { cWeek = addDays(cWeek, 7 * +ds.cweek); rerender(); return; }
+    if (ds.cym) { cYM = addMonths(cYM, +ds.cym); rerender(); return; }
+    if (ds.shop) { const x = H().shop.find((y) => y.id === ds.shop); touch(Object.assign(x, { done: !x.done })); save(); rerender(); return; }
+    if (ds.shopdel) { touch(Object.assign(H().shop.find((y) => y.id === ds.shopdel), { del: true })); save(); rerender(); return; }
+    if (el.id === "shopClear") { H().shop.filter((y) => y.done && !y.del).forEach((y) => touch(Object.assign(y, { del: true }))); save(); rerender(); return; }
+    if (ds.recnew) { editRecipe = "new"; rerender(); setTimeout(() => $("recName") && $("recName").focus(), 30); return; }
+    if (ds.reccancel) { editRecipe = null; rerender(); return; }
+    if (ds.recsave) { const name = $("recName").value.trim(); if (!name) return; const data = { name: cap1(name), ing: $("recIng").value, notes: $("recNotes").value };
+      if (ds.recsave === "new") H().recipes.push(touch(Object.assign({ id: uid() }, data))); else touch(Object.assign(H().recipes.find((y) => y.id === ds.recsave), data));
+      editRecipe = null; save(); rerender(); toast("Receta guardada."); return; }
+    if (ds.recopen) { openRecipe = openRecipe === ds.recopen ? null : ds.recopen; hDel = null; rerender(); return; }
+    if (ds.recedit) { editRecipe = ds.recedit; rerender(); return; }
+    if (ds.recdel) { if (hDel !== ds.recdel) { hDel = ds.recdel; rerender(); return; } touch(Object.assign(H().recipes.find((y) => y.id === ds.recdel), { del: true })); hDel = null; save(); rerender(); return; }
+    if (ds.recshop) { const r = H().recipes.find((y) => y.id === ds.recshop), have = alive(H().shop).filter((y) => !y.done).map((y) => norm(y.text));
+      const add = r.ing.split("\n").map((x) => x.trim()).filter(Boolean).filter((x) => !have.includes(norm(x)));
+      add.forEach((t) => H().shop.push(touch({ id: uid(), text: cap1(t), done: false, by: me() }))); save(); rerender(); toast(add.length ? add.length + " ingredientes añadidos a la compra." : "Ya estaba todo en la lista."); return; }
+    if (ds.hpay) { hPayer = ds.hpay; document.querySelectorAll("[data-hpay]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.hpay === hPayer)); return; }
+    if (ds.hcat) { hCat = ds.hcat; hxUpdate(); return; }
+    if (ds.hxdel) { if (hDel !== ds.hxdel) { hDel = ds.hxdel; rerender(); return; } touch(Object.assign(H().hexp.find((y) => y.id === ds.hxdel), { del: true })); hDel = null; save(); rerender(); renderDinero(); return; }
+    if (ds.hnote) { const n = H().notes.find((y) => y.id === ds.hnote); touch(Object.assign(n, { done: true, doneAt: today() })); save(); rerender(); toastAct("Hecho en casa.", "Deshacer", () => { touch(Object.assign(n, { done: false })); save(); rerender(); }); return; }
+    if (el.id === "hSettle") { const b = houseBalance(cYM); if (Math.abs(b.balA) < 0.5) return; const payer = b.balA < 0 ? "A" : "B";
+      H().hexp.push(touch({ id: uid(), date: cYM === ymOf(today()) ? today() : cYM + "-28", cat: "ajuste", paidBy: payer, amount: Math.abs(b.balA), note: "Saldar cuentas" })); save(); rerender(); renderDinero(); toast("Cuentas saldadas."); return; }
+    if (el.id === "hFixAdd") { H().fixed.push(touch({ id: uid(), name: "Comunidad", payer: other(me()) })); save(); rerender(); toast("Añadido «Comunidad». Cámbiale el nombre si no es eso."); return; }
+  });
+  function applyPrefs() {
+    const hide = !!(state.prefs && state.prefs.hideStudy);
+    document.querySelector('[data-tab="estudio"]').hidden = hide;
+    document.querySelector("nav.tabs .in").style.setProperty("--tabs", hide ? 5 : 6);
+    if ($("prefStudy")) $("prefStudy").setAttribute("aria-pressed", !hide);
+  }
+
+  // =====================================================================
+  // NUBE · cifrado en el móvil (AES-GCM con la clave de la casa) + Supabase
+  // Al servidor solo llega texto cifrado. Sin la clave de la casa no se puede leer.
+  // =====================================================================
+  const CLOUD_URL = "", CLOUD_KEY = "";          // se rellenan al conectar vuestra base de datos
+  const CK = "mi-pared-cloud";
+  var cloud = (() => { try { return JSON.parse(localStorage.getItem(CK)) || {}; } catch (e) { return {}; } })();
+  const saveCloud = () => { try { localStorage.setItem(CK, JSON.stringify(cloud)); } catch (e) {} };
+  var sb = null, cryptoKey = null, cloudStatus = { msg: "", err: false, busy: false }, pushT = null, dirtyFlag = false;
+  const cfg = () => ({ url: CLOUD_URL || cloud.url || "", key: CLOUD_KEY || cloud.key || "" });
+  const b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
+  const unb64 = (s2) => Uint8Array.from(atob(s2), (c) => c.charCodeAt(0));
+  async function deriveKey(pass, salt) {
+    const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(pass), "PBKDF2", false, ["deriveKey"]);
+    return crypto.subtle.deriveKey({ name: "PBKDF2", salt: unb64(salt), iterations: 250000, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
+  }
+  async function encryptObj(obj) { const iv = crypto.getRandomValues(new Uint8Array(12)); const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, cryptoKey, new TextEncoder().encode(JSON.stringify(obj))); return { data: b64(ct), iv: b64(iv) }; }
+  async function decryptObj(row) { const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: unb64(row.iv) }, cryptoKey, unb64(row.data)); return JSON.parse(new TextDecoder().decode(pt)); }
+  async function restoreKey() { if (cryptoKey || !cloud.jwk) return; try { cryptoKey = await crypto.subtle.importKey("jwk", cloud.jwk, { name: "AES-GCM" }, true, ["encrypt", "decrypt"]); } catch (e) { cryptoKey = null; } }
+  async function keepKey() { cloud.jwk = await crypto.subtle.exportKey("jwk", cryptoKey); saveCloud(); }
+  function loadSdk() {
+    if (window.supabase) return Promise.resolve();
+    return new Promise((ok, ko) => { const sc = document.createElement("script"); sc.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"; sc.onload = ok; sc.onerror = () => ko(new Error("No se pudo cargar la conexión. ¿Tienes internet?")); document.head.appendChild(sc); });
+  }
+  async function client() { const c = cfg(); if (!c.url || !c.key) return null; if (!sb) { await loadSdk(); sb = window.supabase.createClient(c.url, c.key, { auth: { persistSession: true, storageKey: "mi-pared-auth" } }); } return sb; }
+  // Acceso a datos (se puede sustituir en pruebas)
+  let api = {
+    async user() { const c = await client(); if (!c) return null; const { data } = await c.auth.getSession(); return data.session ? data.session.user : null; },
+    async signIn(email, password) { const { error } = await (await client()).auth.signInWithPassword({ email, password }); if (error) throw error; },
+    async signUp(email, password) { const { data, error } = await (await client()).auth.signUp({ email, password, options: { emailRedirectTo: location.origin + location.pathname } }); if (error) throw error; return data; },
+    async signOut() { await (await client()).auth.signOut(); },
+    async membership() { const c = await client(); const u = await api.user(); const { data, error } = await c.from("members").select("household_id, role, name, households(salt, invite_code)").eq("user_id", u.id).maybeSingle(); if (error) throw error; return data; },
+    async members(h) { const { data, error } = await (await client()).from("members").select("role, name").eq("household_id", h); if (error) throw error; return data || []; },
+    async createHousehold(name, salt) { const { data, error } = await (await client()).rpc("create_household", { p_name: name, p_salt: salt }); if (error) throw error; return data[0]; },
+    async joinHousehold(code, name) { const { data, error } = await (await client()).rpc("join_household", { p_code: code, p_name: name }); if (error) throw error; return data; },
+    async getRows(ids) { const { data, error } = await (await client()).from("vault").select("id, data, iv, updated_at").in("id", ids); if (error) throw error; return data || []; },
+    async putRow(row) { const { error } = await (await client()).from("vault").upsert(row); if (error) throw error; }
+  };
+  const ready = () => !!(cloud.uid && cloud.household && cryptoKey);
+  function cloudDirty() { if (syncing) return; dirtyFlag = true; cloud.personalDirty = true; saveCloud(); if (!ready()) return; clearTimeout(pushT); pushT = setTimeout(() => syncNow(), 2500); }
+  // Mezcla lo común: por registro, gana el cambio más reciente.
+  function mergeArr(a, b) { const m = new Map(); (a || []).concat(b || []).forEach((x) => { const y = m.get(x.id); if (!y || (x.u || 0) > (y.u || 0)) m.set(x.id, x); }); return [...m.values()]; }
+  function mergeHome(a, b) {
+    if (!b) return a; if (!a) return b;
+    const out = Object.assign({}, a);
+    ["notes", "shop", "recipes", "hexp", "fixed"].forEach((k) => { out[k] = mergeArr(a[k], b[k]); });
+    out.meals = Object.assign({}, a.meals);
+    Object.entries(b.meals || {}).forEach(([d, v]) => { out.meals[d] = Object.assign({}, out.meals[d]); ["c", "n"].forEach((k) => { if (v[k] && (!out.meals[d][k] || v[k].u > out.meals[d][k].u)) out.meals[d][k] = v[k]; }); });
+    out.split = (b.split && (b.split.u || 0) > ((a.split && a.split.u) || 0)) ? b.split : a.split;
+    const na = a.names || {}, nb = b.names || {};
+    out.names = { A: (nb.uA || 0) > (na.uA || 0) ? nb.A : na.A, B: (nb.uB || 0) > (na.uB || 0) ? nb.B : na.B, uA: Math.max(na.uA || 0, nb.uA || 0), uB: Math.max(na.uB || 0, nb.uB || 0) };
+    return out;
+  }
+  const personalOf = (st) => { const o = Object.assign({}, st); delete o.home; return o; };
+  var syncing = false;
+  async function syncNow(quiet) {
+    if (!ready() || syncing) return;
+    syncing = true; cloudStatus = { msg: "Sincronizando…", busy: true }; renderCloud();
+    try {
+      // Primera vez que este móvil se une a la casa: no subir datos de ejemplo ni mezclar otra casa.
+      if (cloud.homeFor !== cloud.household) {
+        if (state.myRole === "B") {
+          if (state.sample) { const sched = state.sched, prefs = state.prefs || {}; state = Object.assign(defaultFresh(), { sched, prefs, myRole: "B", home: state.home }); cloud.personalDirty = true; }
+          const keepNames = state.home && state.home.names; state.home = emptyHome(); if (keepNames && keepNames.uB) { state.home.names.B = keepNames.B; state.home.names.uB = keepNames.uB; }
+        } else if (state.sample) state.home = defaultHome(false);
+        cloud.homeFor = cloud.household; saveCloud();
+      }
+      const sid = "shared:" + cloud.household, pid = "personal:" + cloud.uid;
+      const rows = await api.getRows([sid, pid]), rs = rows.find((r) => r.id === sid), rp = rows.find((r) => r.id === pid);
+      // común
+      const remoteHome = rs ? await decryptObj(rs) : null;
+      const merged = mergeHome(state.home, remoteHome);
+      state.home = merged;
+      const enc = await encryptObj(merged);
+      if (!rs || JSON.stringify(merged) !== JSON.stringify(remoteHome)) await api.putRow({ id: sid, household_id: cloud.household, owner: null, data: enc.data, iv: enc.iv, updated_at: new Date().toISOString() });
+      // personal: gana lo último guardado
+      if (rp && !cloud.personalDirty && (!cloud.personalAt || rp.updated_at > cloud.personalAt)) {
+        const remoteP = await decryptObj(rp), home = state.home; state = Object.assign(remoteP, { home }); cloud.personalAt = rp.updated_at; migrateSched(); ensureMoney(); fillSched(); fillRemind();
+      } else if (cloud.personalDirty || !rp) {
+        const at = new Date().toISOString(), encP = await encryptObj(personalOf(state));
+        await api.putRow({ id: pid, household_id: cloud.household, owner: cloud.uid, data: encP.data, iv: encP.iv, updated_at: at });
+        cloud.personalAt = at; cloud.personalDirty = false;
+      }
+      const ms = await api.members(cloud.household).catch(() => []);
+      ms.forEach((m) => { if (m.name && (!state.home.names[m.role] || state.home.names[m.role] === "Yo" || state.home.names[m.role] === "Pareja")) state.home.names[m.role] = m.name; });
+      cloud.partner = (ms.find((m) => m.role !== state.myRole) || {}).name || cloud.partner || "";
+      cloud.lastSync = new Date().toISOString(); saveCloud();
+      try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+      cloudStatus = { msg: "Sincronizado", err: false };
+    } catch (e) {
+      cloudStatus = { msg: /decrypt|operation/i.test(String(e && (e.name + e.message))) ? "La clave de la casa no coincide." : "Sin conexión. Se guardará al volver.", err: true };
+    }
+    syncing = false; render();
+  }
+  async function cloudAction(fn) { cloudStatus = { msg: "Un momento…", busy: true }; renderCloud(); try { await fn(); } catch (e) { cloudStatus = { msg: niceErr(e), err: true }; } renderCloud(); }
+  function niceErr(e) {
+    const m = String((e && (e.message || e.error_description)) || e);
+    if (/Invalid login/i.test(m)) return "Email o contraseña incorrectos.";
+    if (/Email not confirmed/i.test(m)) return "Confirma tu email con el enlace que te ha llegado y vuelve a entrar.";
+    if (/already registered/i.test(m)) return "Ese email ya tiene cuenta. Entra con «Entrar».";
+    if (/Password should be/i.test(m)) return "La contraseña tiene que tener al menos 6 caracteres.";
+    if (/decrypt|operation/i.test(m)) return "La clave de la casa no coincide.";
+    return m;
+  }
+  async function afterLogin() {
+    const u = await api.user(); if (!u) return;
+    cloud.uid = u.id; cloud.email = u.email;
+    const m = await api.membership();
+    if (m) { cloud.household = m.household_id; cloud.salt = m.households.salt; cloud.code = m.households.invite_code; state.myRole = m.role; cloud.myName = m.name; }
+    saveCloud(); save();
+  }
+  function renderCloud() {
+    const el = $("cloudCard"); if (!el) return;
+    const c = cfg(), st = cloudStatus.msg ? '<p class="small" style="color:' + (cloudStatus.err ? "var(--over)" : "var(--muted)") + '">' + esc(cloudStatus.msg) + "</p>" : "";
+    $("cSync").innerHTML = ready() ? '<span class="sync-dot ' + (cloudStatus.err ? "err" : "on") + '"></span>' + (cloudStatus.err ? "Sin sincronizar" : "Sincronizado") : '<span class="sync-dot"></span>Solo en este móvil';
+    if (el.contains(document.activeElement) && document.activeElement.tagName === "INPUT") return;
+    let h = '<div class="card-h">Cuenta y casa compartida</div>';
+    if (!c.url) {
+      h += '<p class="small muted">Para compartir Casa con tu pareja hace falta conectar vuestra base de datos privada (Supabase). Mientras tanto, todo funciona solo en este móvil.</p>' +
+        '<label class="field">URL del proyecto<input type="text" id="cfUrl" placeholder="https://xxxx.supabase.co" autocomplete="off"></label><label class="field">Clave pública (anon)<input type="text" id="cfKey" autocomplete="off"></label><div class="chips"><button class="btn dark sm" type="button" id="cfSave">Conectar</button></div>';
+    } else if (!cloud.uid) {
+      h += '<p class="small muted">Entra con tu email. Cada uno tiene su propia cuenta.</p><label class="field">Email<input type="text" inputmode="email" id="auEmail" autocomplete="username"></label><label class="field">Contraseña<input type="password" id="auPass" autocomplete="current-password"></label>' +
+        '<div class="chips"><button class="btn dark sm" type="button" id="auIn">Entrar</button><button class="btn sm" type="button" id="auUp">Crear cuenta</button></div>';
+    } else if (!cloud.household) {
+      h += '<p class="small">Hola, ' + esc(cloud.email) + '. Ahora cread la casa: una persona la crea y la otra se une con el código.</p>' +
+        '<label class="field">Tu nombre<input type="text" id="hhName"></label><label class="field">Clave de la casa (la sabréis solo vosotros, mín. 8 caracteres)<input type="password" id="hhPass" autocomplete="new-password"></label>' +
+        '<label class="field">Código de tu pareja (solo si te unes a su casa)<input type="text" id="hhCode" autocomplete="off" placeholder="Déjalo vacío si creas la casa"></label>' +
+        '<div class="chips"><button class="btn dark sm" type="button" id="hhCreate">Crear casa</button><button class="btn sm" type="button" id="hhJoin">Unirme con código</button></div>' +
+        '<p class="xs muted">La clave de la casa cifra todo antes de subirlo. Si la olvidáis, no se puede recuperar.</p>';
+    } else if (!cryptoKey) {
+      h += '<p class="small">Escribe la clave de la casa para abrir vuestros datos en este móvil.</p><label class="field">Clave de la casa<input type="password" id="hhPass2" autocomplete="current-password"></label><div class="chips"><button class="btn dark sm" type="button" id="hhUnlock">Abrir</button></div>';
+    } else {
+      h += '<p class="small"><span class="sync-dot ' + (cloudStatus.err ? "err" : "on") + '"></span>Conectada como <b>' + esc(cloud.email) + "</b>" + (cloud.partner ? " · casa con <b>" + esc(cloud.partner) + "</b>" : "") + "</p>" +
+        (!cloud.partner ? '<div class="alert note-ok" style="background:var(--p-lila);color:var(--ink)"><b style="color:var(--ink)">Invita a tu pareja</b><span>Que instale la app, cree su cuenta y se una con este código: <b style="font-size:16px;letter-spacing:.1em">' + esc(cloud.code || "") + "</b>. También necesitará la clave de la casa.</span></div>" : "") +
+        '<p class="xs muted">Última sincronización: ' + (cloud.lastSync ? new Date(cloud.lastSync).toLocaleString("es-ES", { dateStyle: "short", timeStyle: "short" }) : "nunca") + '</p><div class="chips"><button class="btn sm" type="button" id="syncBtn">Sincronizar ahora</button><button class="btn sm" type="button" id="auOut">Cerrar sesión</button></div>';
+    }
+    el.innerHTML = h + st;
+  }
+  document.addEventListener("click", (e) => {
+    const id = e.target.id;
+    if (id === "cfSave") { const u = $("cfUrl").value.trim().replace(/\/+$/, ""), k = $("cfKey").value.trim(); if (!/^https:\/\/.+/.test(u) || k.length < 20) { cloudStatus = { msg: "Revisa la URL y la clave.", err: true }; renderCloud(); return; } cloud.url = u; cloud.key = k; saveCloud(); sb = null; cloudStatus = {}; renderCloud(); }
+    else if (id === "auIn" || id === "auUp") { const em = $("auEmail").value.trim(), pw = $("auPass").value; if (!em || !pw) return;
+      cloudAction(async () => { if (id === "auUp") { const d = await api.signUp(em, pw); if (!d.session) { cloudStatus = { msg: "Te hemos enviado un email. Pulsa el enlace para confirmar la cuenta y luego vuelve aquí y pulsa «Entrar».", err: false }; return; } } else await api.signIn(em, pw);
+        await afterLogin(); await restoreKey(); cloudStatus = { msg: "", err: false }; if (ready()) await syncNow(); }); }
+    else if (id === "hhCreate" || id === "hhJoin") { const nm = $("hhName").value.trim(), pw = $("hhPass").value, code = $("hhCode").value.trim();
+      if (!nm) { cloudStatus = { msg: "Escribe tu nombre.", err: true }; renderCloud(); return; }
+      if (pw.length < 8) { cloudStatus = { msg: "La clave de la casa tiene que tener al menos 8 caracteres.", err: true }; renderCloud(); return; }
+      if (id === "hhJoin" && !code) { cloudStatus = { msg: "Escribe el código que te ha pasado tu pareja.", err: true }; renderCloud(); return; }
+      cloudAction(async () => {
+        if (id === "hhCreate") { const salt = b64(crypto.getRandomValues(new Uint8Array(16))); await api.createHousehold(nm, salt); }
+        else await api.joinHousehold(code, nm);
+        await afterLogin(); cryptoKey = await deriveKey(pw, cloud.salt);
+        if (id === "hhJoin") { const rows = await api.getRows(["shared:" + cloud.household]); if (rows[0]) { try { await decryptObj(rows[0]); } catch (err) { cryptoKey = null; throw new Error("La clave de la casa no coincide con la de tu pareja."); } }
+          // quien se une empieza su perfil personal desde cero (lo de este móvil se queda como estaba si era de ejemplo)
+          if (state.sample) { const sched = state.sched; state = Object.assign(defaultFresh(), { sched, prefs: state.prefs || {} }); }
+          state.home = emptyHome(); state.myRole = "B"; }
+        else if (state.sample) state.home = defaultHome(false);
+        setName(state.myRole, nm);
+        await keepKey(); cloud.personalDirty = true; save(); await syncNow(); }); }
+    else if (id === "hhUnlock") { const pw = $("hhPass2").value; cloudAction(async () => { cryptoKey = await deriveKey(pw, cloud.salt); const rows = await api.getRows(["shared:" + cloud.household]);
+      if (rows[0]) { try { await decryptObj(rows[0]); } catch (err) { cryptoKey = null; throw new Error("La clave de la casa no coincide."); } } await keepKey(); await syncNow(); }); }
+    else if (id === "syncBtn") syncNow();
+    else if (id === "auOut") cloudAction(async () => { await api.signOut(); ["uid", "email", "household", "salt", "code", "jwk", "partner", "lastSync", "personalAt"].forEach((k) => delete cloud[k]); cryptoKey = null; saveCloud(); });
+  });
+  function defaultFresh() {
+    const money = defaultMoney(false);
+    return { v: 3, sample: false, weekColor: {}, notes: [], plans: [], plansV: 1, daysOff: [], events: [], routines: {}, schedV: 2, money };
+  }
+  async function cloudStart() {
+    if (!cfg().url) { renderCloud(); return; }
+    try { await restoreKey(); if (!cloud.uid) { const u = await api.user(); if (u) await afterLogin(); } if (ready()) await syncNow(); else renderCloud(); } catch (e) { cloudStatus = { msg: "Sin conexión.", err: true }; renderCloud(); }
+  }
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && ready()) syncNow(); });
+  setInterval(() => { if (!document.hidden && ready()) syncNow(); }, 60000);
+  // Ganchos para pruebas automáticas
+  window.__miPared = { setApi: (a) => { api = Object.assign({}, api, a); }, setCfg: (u, k) => { cloud.url = u; cloud.key = k; saveCloud(); }, syncNow, mergeHome, state: () => state };
+
   // ---------- páginas ----------
-  const VIEWS = ["inicio", "posits", "estudio", "agenda", "dinero", "ajustes"];
+  const VIEWS = ["inicio", "posits", "estudio", "agenda", "dinero", "casa", "ajustes"];
   function route() {
     const v = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "inicio";
     document.querySelectorAll("[data-view]").forEach((x) => { x.hidden = x.dataset.view !== v; });
@@ -1487,6 +1923,9 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
   migrateSched();
   if (!state.sched.dog.name) state.sched.dog.name = "Cooper";
   ensureMoney();
+  if (!state.home) state.home = defaultHome(!!state.sample);
+  if (!state.myRole) state.myRole = "A";
+  if (!state.prefs) state.prefs = {};
   if (!state.plansV) {
     state.notes.filter((n) => !n.done && n.due && n.area !== "life" && isDeadline(n.text)).forEach((n) => { state.plans.push(makePlan(n.text, n.due, n.area || "uni")); n.done = true; n.tossed = true; n.doneAt = today(); });
     state.plansV = 1;
@@ -1497,6 +1936,7 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
   fillRemind();
   route();
   render();
+  cloudStart();
   let lastDay = today();
   const refresh = () => { if (today() !== lastDay) { lastDay = today(); selDay = lastDay; render(); } };
   setInterval(refresh, 60000);
