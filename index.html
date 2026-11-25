@@ -455,7 +455,9 @@ dialog.viewer .btn { background: #2b2b2b; color: #fff; box-shadow: none; }
     <div class="g2">
       <label class="field">Nombre del atajo<input type="text" id="rName"></label>
       <label class="field">Resumen de la mañana<input type="time" id="rMorning"></label>
-      <label class="field">Avisar antes de una cita (min)<input type="number" id="rBefore" min="0" step="5"></label>
+      <label class="field">Avisar antes de una cita o juicio (min)<input type="number" id="rBefore" min="0" step="5"></label>
+      <label class="field">Juicios: aviso la víspera a las<input type="time" id="rJudgeEve"></label>
+      <div class="field full">Qué quieres que te avise<div class="chips" id="rTypes"></div></div>
     </div>
     <div class="cap-act"><button class="btn sm" type="button" id="rTest">Enviar aviso de prueba</button><button class="btn dark sm" type="button" id="rReady">Ya funciona</button></div>
     <div class="cap-act"><button class="btn sm" type="button" id="rResend">Volver a enviar los de las próximas 2 semanas</button></div>
@@ -1518,7 +1520,11 @@ dialog.viewer .btn { background: #2b2b2b; color: #fff; box-shadow: none; }
   };
 
   // ---------- avisos en Recordatorios (vía Atajos) ----------
-  function RM() { if (!state.remind) state.remind = { name: "Mi pared", morning: "07:30", before: 60, ready: false, sent: {} }; return state.remind; }
+  const RTYPES = [["juicio", "Juicios"], ["cita", "Citas"], ["carrera", "Carreras"], ["plan", "Exámenes y entregas"], ["fx", "Recibos"], ["sum", "Resumen de la mañana"]];
+  function RM() { if (!state.remind) state.remind = { name: "Mi pared", morning: "07:30", before: 60, ready: false, sent: {} };
+    if (!state.remind.types) state.remind.types = Object.fromEntries(RTYPES.map(([k]) => [k, true]));
+    if (state.remind.judgeEve == null) state.remind.judgeEve = "20:00";
+    return state.remind; }
   const atStr = (d, min) => d + " " + pad(Math.floor(min / 60)) + ":" + pad(min % 60);
   // Atajos en español entiende mejor "20/11/2026 21:15"
   // Minutos desde ahora hasta el aviso: el atajo los suma a la hora actual (no tiene que leer fechas).
@@ -1531,15 +1537,26 @@ dialog.viewer .btn { background: #2b2b2b; color: #fff; box-shadow: none; }
     const add = (key, d, min, title) => { const at = atStr(d, Math.max(0, min)); if (at > nowS) out.push({ key, at, title: clean(title) }); };
     for (let i = 0; i < 14; i++) {
       const d = addDays(today(), i), parts = [];
+      const ty = r.types;
       eventsOn(d).forEach((e) => {
-        if (e.kind === "carrera" && e.part) { const pm = e.part === "m" ? "por la mañana" : "por la tarde"; parts.push("carrera en " + e.title + " " + pm); add("ev|" + e.id + "|" + d + "|" + e.part, addDays(d, -1), 21 * 60, "Mañana: carrera en " + e.title + " " + pm); return; }
-        parts.push((e.kind === "juicio" ? "juicio " : "") + e.title + " " + hm(toMin(e.start))); add("ev|" + e.id + "|" + d + "|" + e.start, d, toMin(e.start) - (+r.before || 0), (e.kind === "juicio" ? "Juicio: " : "") + e.title + " a las " + hm(toMin(e.start))); });
-      state.plans.filter((p) => !p.done && p.due === d).forEach((p) => { parts.push(p.kind.toLowerCase() + " " + p.title); add("pl|" + p.id + "|" + d, addDays(d, -1), 20 * 60, "Mañana: " + p.kind.toLowerCase() + " · " + p.title); });
-      fixedOn(ymOf(d)).filter((x) => x.date === d && !x.paid).forEach((x) => { parts.push(x.f.name + (x.amount ? " " + eur(x.amount) : "")); add("fx|" + x.f.id + "|" + d, addDays(d, -1), mor, "Mañana te cobran " + x.f.name + (x.amount ? " · " + eur(x.amount) : "")); });
+        if (e.kind === "carrera" && e.part) { const pm = e.part === "m" ? "por la mañana" : "por la tarde"; parts.push("carrera en " + e.title + " " + pm); if (ty.carrera) add("ev|" + e.id + "|" + d + "|" + e.part, addDays(d, -1), 21 * 60, "Mañana: carrera en " + e.title + " " + pm); return; }
+        const at = hm(toMin(e.start));
+        if (e.kind === "juicio") {
+          parts.push("juicio " + e.title + " " + at);
+          if (ty.juicio) {
+            const lugar = e.place ? " (" + e.place + ")" : "";
+            if (r.judgeEve) add("ju1|" + e.id + "|" + d + "|" + e.start, addDays(d, -1), toMin(r.judgeEve), "Mañana juicio: " + e.title + " a las " + at + lugar + ((e.photos || []).length ? " · citación en la app" : ""));
+            add("ju2|" + e.id + "|" + d + "|" + e.start, d, toMin(e.start) - (+r.before || 0), "Juicio: " + e.title + " a las " + at + lugar);
+          }
+          return;
+        }
+        parts.push(e.title + " " + at); if (ty.cita) add("ev|" + e.id + "|" + d + "|" + e.start, d, toMin(e.start) - (+r.before || 0), e.title + " a las " + at); });
+      state.plans.filter((p) => !p.done && p.due === d).forEach((p) => { parts.push(p.kind.toLowerCase() + " " + p.title); if (ty.plan) add("pl|" + p.id + "|" + d, addDays(d, -1), 20 * 60, "Mañana: " + p.kind.toLowerCase() + " · " + p.title); });
+      fixedOn(ymOf(d)).filter((x) => x.date === d && !x.paid).forEach((x) => { parts.push(x.f.name + (x.amount ? " " + eur(x.amount) : "")); if (ty.fx) add("fx|" + x.f.id + "|" + d, addDays(d, -1), mor, "Mañana te cobran " + x.f.name + (x.amount ? " · " + eur(x.amount) : "")); });
       state.notes.filter((n) => !n.done && n.due === d).forEach((n) => parts.push(n.text));
       let study = 0; state.plans.filter((p) => !p.done).forEach((p) => p.steps.forEach((st) => { if (!st.done && st.day === d) study += durOf(st); }));
       if (study) parts.push(fdur(study) + " de estudio");
-      if (parts.length) add("sum|" + d, d, mor, "Hoy: " + parts.join(" · "));
+      if (parts.length && r.types.sum) add("sum|" + d, d, mor, "Hoy: " + parts.join(" · "));
     }
     return out.sort((a, b) => a.at.localeCompare(b.at));
   }
@@ -1564,6 +1581,13 @@ dialog.viewer .btn { background: #2b2b2b; color: #fff; box-shadow: none; }
   }
   function fillRemind() {
     const r = RM();
+    $("rJudgeEve").value = r.judgeEve || ""; $("rJudgeEve").onchange = () => { r.judgeEve = $("rJudgeEve").value; save(); render(); };
+    const drawTypes = () => { $("rTypes").innerHTML = RTYPES.map(([k, l]) => '<button type="button" class="chip" data-rtype="' + k + '" aria-pressed="' + !!r.types[k] + '">' + l + "</button>").join("") +
+      '<button type="button" class="chip" data-rtype="__only" aria-pressed="false">Solo juicios</button>'; };
+    drawTypes();
+    $("rTypes").onclick = (ev) => { const b = ev.target.closest("[data-rtype]"); if (!b) return; const k = b.dataset.rtype;
+      if (k === "__only") RTYPES.forEach(([x]) => { r.types[x] = x === "juicio"; }); else r.types[k] = !r.types[k];
+      save(); drawTypes(); render(); };
     $("rName").value = r.name; $("rMorning").value = r.morning; $("rBefore").value = r.before; $("howName").textContent = r.name;
     $("rName").onchange = () => { r.name = $("rName").value.trim() || "Mi pared"; $("howName").textContent = r.name; save(); };
     $("rMorning").onchange = () => { r.morning = $("rMorning").value || "07:30"; save(); render(); };
