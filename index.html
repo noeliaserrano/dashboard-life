@@ -257,6 +257,10 @@ dialog.viewer .btn { background: #2b2b2b; color: #fff; box-shadow: none; }
 .meal.today .d b { text-decoration: underline; text-underline-offset: 3px; }
 .meal .slots { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .meal input { height: 40px; font-size: 14px; }
+.mslot { border: 1px solid #e6dff0; background: var(--card); border-radius: 12px; min-height: 40px; padding: 6px 9px; font-size: 13px; font-weight: 700; text-align: left; color: var(--ink); overflow-wrap: anywhere; line-height: 1.25; }
+.mslot.empty { border-style: dashed; color: var(--faint); font-weight: 600; }
+.pick-list { display: flex; gap: 6px; flex-wrap: wrap; }
+.pick-list .chip { font-size: 13px; padding: 9px 12px; }
 .shop { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; font-weight: 700; font-size: 14px; padding: 6px 0; border-bottom: 1px solid #f3eff7; }
 .shop.done .t { text-decoration: line-through; color: var(--faint); }
 .shop small { display: block; font-size: 11px; color: var(--muted); font-weight: 600; }
@@ -407,7 +411,7 @@ dialog.viewer .btn { background: #2b2b2b; color: #fff; box-shadow: none; }
 <!-- ================= AJUSTES ================= -->
 <section class="view" data-view="ajustes" hidden>
   <div class="top"><div><button class="btn ghost sm" type="button" data-go="inicio">‹ Volver</button><h1>Ajustes</h1></div></div>
-  <p class="xs muted" style="text-align:right">Versión 2026-11-25 · 3</p>
+  <p class="xs muted" style="text-align:right">Versión 2026-11-25 · 4</p>
   <div class="card" id="cloudCard"></div>
   <div class="card">
     <div class="card-h">Secciones que uso</div>
@@ -501,6 +505,17 @@ dialog.viewer .btn { background: #2b2b2b; color: #fff; box-shadow: none; }
   </form>
 </dialog>
 
+<dialog id="mealDlg"><div class="in">
+  <div class="card-h"><h2 id="mdTitle">Comida</h2><button class="btn sm" type="button" id="mdClose">Cerrar</button></div>
+  <div class="sec">Tus recetas</div>
+  <div class="pick-list" id="mdRecipes"></div>
+  <div class="sec" id="mdRecentLbl">Platos recientes</div>
+  <div class="pick-list" id="mdRecent"></div>
+  <div class="sec">Otro plato</div>
+  <form class="cap-row" id="mdForm" autocomplete="off" style="background:var(--card);border-radius:14px;padding:4px"><input type="text" id="mdText" placeholder="Tortilla, sobras, cena fuera…" aria-label="Escribir otro plato" enterkeyhint="done"><button class="btn dark sm" type="submit">Poner</button></form>
+  <label class="small muted" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="mdSaveRecipe" style="width:18px;height:18px"> Guardarlo también en recetas</label>
+  <div class="chips"><button class="btn sm danger" type="button" id="mdClear">Dejar vacío</button></div>
+</div></dialog>
 <dialog class="viewer" id="photoDlg"><div class="vin">
   <div class="vbar"><span id="pvTitle">Citación</span><button class="btn sm" type="button" id="pvClose">Cerrar</button></div>
   <div class="vimg"><img id="pvImg" alt="Foto de la citación"></div>
@@ -1816,9 +1831,9 @@ dialog.viewer .btn { background: #2b2b2b; color: #fff; box-shadow: none; }
     for (let i = 0; i < 7; i++) {
       const d = addDays(cWeek, i), m = H().meals[d] || {};
       h += '<div class="meal' + (d === today() ? " today" : "") + '"><span class="d">' + DOW[parse(d).getDay()] + "<b>" + parse(d).getDate() + '</b></span><div class="slots">' +
-        ["c", "n"].map((k) => '<input type="text" list="recipeNames" data-meal="' + d + "|" + k + '" value="' + esc((m[k] && m[k].t) || "") + '" placeholder="' + (k === "c" ? "Comida" : "Cena") + '" aria-label="' + (k === "c" ? "Comida" : "Cena") + " " + fmt(d) + '">').join("") + "</div></div>";
+        ["c", "n"].map((k) => { const v = (m[k] && m[k].t) || ""; return '<button type="button" class="mslot' + (v ? "" : " empty") + '" data-mealpick="' + d + "|" + k + '" aria-label="' + (k === "c" ? "Comida" : "Cena") + " " + fmt(d) + '">' + (v ? esc(v) : "+ " + (k === "c" ? "Comida" : "Cena")) + "</button>"; }).join("") + "</div></div>";
     }
-    h += '<p class="xs muted">Escribe el plato o elige una receta. Lo ve también tu pareja.</p></div>';
+    h += '<p class="xs muted">Toca un hueco para elegir una receta o escribir otro plato. Lo ve también tu pareja.</p></div>';
     return h;
   }
   function casaCompra() {
@@ -1976,6 +1991,41 @@ dialog.viewer .btn { background: #2b2b2b; color: #fff; box-shadow: none; }
     if ($("prefShifts")) $("prefShifts").setAttribute("aria-pressed", sh);
   }
 
+
+  // ---------- elegir plato del menú ----------
+  let mdSlot = null;
+  function openMealPicker(d, k) {
+    mdSlot = { d, k }; const cur = ((H().meals[d] || {})[k] || {}).t || "";
+    $("mdTitle").textContent = (k === "c" ? "Comida" : "Cena") + " · " + fmt(d);
+    const recs = alive(H().recipes).map((r) => r.name).sort((a, b) => a.localeCompare(b));
+    $("mdRecipes").innerHTML = recs.map((n) => '<button type="button" class="chip" data-mdpick="' + esc(n) + '" aria-pressed="' + (n === cur) + '">' + esc(n) + "</button>").join("") || '<span class="small muted">Aún no hay recetas. Escribe el plato abajo y marca «Guardarlo también en recetas».</span>';
+    const seen = new Set(recs.map(norm)), recent = [];
+    Object.keys(H().meals).sort().reverse().forEach((dd) => ["c", "n"].forEach((kk) => { const t = ((H().meals[dd] || {})[kk] || {}).t; if (t && !seen.has(norm(t))) { seen.add(norm(t)); recent.push(t); } }));
+    $("mdRecent").innerHTML = recent.slice(0, 10).map((n) => '<button type="button" class="chip" data-mdpick="' + esc(n) + '" aria-pressed="' + (n === cur) + '">' + esc(n) + "</button>").join("");
+    $("mdRecentLbl").hidden = $("mdRecent").hidden = !recent.length;
+    $("mdText").value = recs.includes(cur) || recent.includes(cur) ? "" : cur; $("mdSaveRecipe").checked = false;
+    $("mealDlg").showModal();
+  }
+  function setMeal(text) {
+    const { d, k } = mdSlot; H().meals[d] = H().meals[d] || {}; H().meals[d][k] = { t: text, u: now() }; save();
+    $("mealDlg").close(); $("cBody")._tab = null; renderCasa(); renderHomeToday();
+    const r = text && alive(H().recipes).find((x) => norm(x.name) === norm(text));
+    if (r && r.ing.trim()) toastAct((k === "c" ? "Comida" : "Cena") + ": " + text + ".", "Añadir ingredientes a la compra", () => {
+      const have = alive(H().shop).filter((y) => !y.done).map((y) => norm(y.text)), add = r.ing.split("\n").map((x) => x.trim()).filter(Boolean).filter((x) => !have.includes(norm(x)));
+      add.forEach((t) => H().shop.push(touch({ id: uid(), text: cap1(t), done: false, by: me() }))); save(); $("cBody")._tab = null; renderCasa(); renderHomeToday(); toast(add.length ? add.length + " ingredientes en la compra." : "Ya estaba todo en la lista."); });
+    else if (text) toast((k === "c" ? "Comida" : "Cena") + ": " + text + ".");
+  }
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-mealpick],[data-mdpick]"); if (!b) return;
+    if (b.dataset.mealpick) { const [d, k] = b.dataset.mealpick.split("|"); openMealPicker(d, k); }
+    else setMeal(b.dataset.mdpick);
+  });
+  $("mdForm").addEventListener("submit", (e) => { e.preventDefault(); const t = cap1($("mdText").value.trim()); if (!t) { $("mdText").focus(); return; }
+    if ($("mdSaveRecipe").checked && !alive(H().recipes).some((r) => norm(r.name) === norm(t))) H().recipes.push(touch({ id: uid(), name: t, ing: "", notes: "" }));
+    setMeal(t); });
+  $("mdClear").onclick = () => setMeal("");
+  $("mdClose").onclick = () => $("mealDlg").close();
+
   // =====================================================================
   // NUBE · cifrado en el móvil (AES-GCM con la clave de la casa) + Supabase
   // Al servidor solo llega texto cifrado. Sin la clave de la casa no se puede leer.
@@ -2097,6 +2147,8 @@ dialog.viewer .btn { background: #2b2b2b; color: #fff; box-shadow: none; }
     if (m) { cloud.household = m.household_id; cloud.salt = m.households.salt; cloud.code = m.households.invite_code; state.myRole = m.role; cloud.myName = m.name; }
     saveCloud(); save();
   }
+  let authDraft = { em: "", pw: "" };
+  document.addEventListener("input", (e) => { if (e.target.id === "auEmail") authDraft.em = e.target.value; else if (e.target.id === "auPass") authDraft.pw = e.target.value; });
   function renderCloud(force) {
     const el = $("cloudCard"); if (!el) return;
     const c = cfg(), st = cloudStatus.msg ? '<div class="alert' + (cloudStatus.err ? "" : " note-ok") + '"' + (cloudStatus.busy ? ' style="background:var(--soft);color:var(--ink)"' : "") + '><span>' + esc(cloudStatus.msg) + "</span></div>" : "";
@@ -2107,7 +2159,7 @@ dialog.viewer .btn { background: #2b2b2b; color: #fff; box-shadow: none; }
       h += '<p class="small muted">Para compartir Casa con tu pareja hace falta conectar vuestra base de datos privada (Supabase). Mientras tanto, todo funciona solo en este móvil.</p>' +
         '<label class="field">URL del proyecto<input type="text" id="cfUrl" placeholder="https://xxxx.supabase.co" autocomplete="off"></label><label class="field">Clave pública (anon)<input type="text" id="cfKey" autocomplete="off"></label><div class="chips"><button class="btn dark sm" type="button" id="cfSave">Conectar</button></div>';
     } else if (!cloud.uid) {
-      h += '<p class="small muted">Entra con tu email. Cada uno tiene su propia cuenta.</p><label class="field">Email<input type="email" inputmode="email" id="auEmail" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false"></label><label class="field">Contraseña<input type="password" id="auPass" autocomplete="current-password" autocapitalize="off" autocorrect="off"></label>' +
+      h += '<p class="small muted">Entra con tu email. Cada uno tiene su propia cuenta.</p><label class="field">Email<input type="email" inputmode="email" id="auEmail" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" value="' + esc(authDraft.em) + '"></label><label class="field">Contraseña<input type="password" id="auPass" autocomplete="current-password" autocapitalize="off" autocorrect="off" value="' + esc(authDraft.pw) + '"></label>' +
         '<div class="chips"><button class="btn dark sm" type="button" id="auIn">Entrar</button><button class="btn sm" type="button" id="auUp">Crear cuenta</button></div>' +
         '<p class="xs muted">Conectada a ' + esc(c.url) + ' · <button class="link xs" type="button" id="cfReset">Cambiar conexión</button> · <button class="link xs" type="button" id="cfTest">Comprobar conexión</button></p>';
     } else if (!cloud.household) {
@@ -2128,7 +2180,8 @@ dialog.viewer .btn { background: #2b2b2b; color: #fff; box-shadow: none; }
   document.addEventListener("click", (e) => {
     const id = e.target.id;
     if (id === "cfSave") { let u = $("cfUrl").value.trim(); try { u = new URL(/^https?:\/\//.test(u) ? u : "https://" + u).origin; } catch (err) { u = ""; } const k = $("cfKey").value.trim().replace(/\s+/g, ""); if (!/^https:\/\/.+/.test(u) || k.length < 20) { cloudStatus = { msg: "Revisa la URL y la clave.", err: true }; renderCloud(); return; } cloud.url = u; cloud.key = k; saveCloud(); sb = null; cloudStatus = {}; renderCloud(); }
-    else if (id === "auIn" || id === "auUp") { const em = $("auEmail").value.trim().toLowerCase(), pw = $("auPass").value; if (!em || !pw) return;
+    else if (id === "auIn" || id === "auUp") { const em = ($("auEmail").value || authDraft.em).trim().toLowerCase(), pw = $("auPass").value || authDraft.pw;
+      if (!em || !pw) { cloudStatus = { msg: !em ? "Escribe tu email." : "Escribe una contraseña (mínimo 6 caracteres).", err: true }; renderCloud(true); return; }
       if (id === "auUp" && pw.length < 6) { cloudStatus = { msg: "La contraseña tiene que tener al menos 6 caracteres.", err: true }; renderCloud(true); return; }
       cloudAction(async () => {
         if (id === "auUp") {
