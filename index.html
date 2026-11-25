@@ -2073,7 +2073,7 @@ dialog.viewer .btn { background: #2b2b2b; color: #fff; box-shadow: none; }
   async function cloudAction(fn) { cloudStatus = { msg: "Un momento…", busy: true }; renderCloud(); try { await fn(); } catch (e) { cloudStatus = { msg: niceErr(e), err: true }; } renderCloud(); }
   function niceErr(e) {
     const m = String((e && (e.message || e.error_description)) || e);
-    if (/Invalid login/i.test(m)) return "Email o contraseña incorrectos.";
+    if (/Invalid login/i.test(m)) return "Email o contraseña incorrectos. Si es la primera vez, pulsa «Crear cuenta» en vez de «Entrar».";
     if (/Email not confirmed/i.test(m)) return "Confirma tu email con el enlace que te ha llegado y vuelve a entrar.";
     if (/already registered/i.test(m)) return "Ese email ya tiene cuenta. Entra con «Entrar».";
     if (/Password should be/i.test(m)) return "La contraseña tiene que tener al menos 6 caracteres.";
@@ -2097,7 +2097,7 @@ dialog.viewer .btn { background: #2b2b2b; color: #fff; box-shadow: none; }
       h += '<p class="small muted">Para compartir Casa con tu pareja hace falta conectar vuestra base de datos privada (Supabase). Mientras tanto, todo funciona solo en este móvil.</p>' +
         '<label class="field">URL del proyecto<input type="text" id="cfUrl" placeholder="https://xxxx.supabase.co" autocomplete="off"></label><label class="field">Clave pública (anon)<input type="text" id="cfKey" autocomplete="off"></label><div class="chips"><button class="btn dark sm" type="button" id="cfSave">Conectar</button></div>';
     } else if (!cloud.uid) {
-      h += '<p class="small muted">Entra con tu email. Cada uno tiene su propia cuenta.</p><label class="field">Email<input type="text" inputmode="email" id="auEmail" autocomplete="username"></label><label class="field">Contraseña<input type="password" id="auPass" autocomplete="current-password"></label>' +
+      h += '<p class="small muted">Entra con tu email. Cada uno tiene su propia cuenta.</p><label class="field">Email<input type="email" inputmode="email" id="auEmail" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false"></label><label class="field">Contraseña<input type="password" id="auPass" autocomplete="current-password" autocapitalize="off" autocorrect="off"></label>' +
         '<div class="chips"><button class="btn dark sm" type="button" id="auIn">Entrar</button><button class="btn sm" type="button" id="auUp">Crear cuenta</button></div>' +
         '<p class="xs muted">Conectada a ' + esc(c.url) + ' · <button class="link xs" type="button" id="cfReset">Cambiar conexión</button></p>';
     } else if (!cloud.household) {
@@ -2118,7 +2118,7 @@ dialog.viewer .btn { background: #2b2b2b; color: #fff; box-shadow: none; }
   document.addEventListener("click", (e) => {
     const id = e.target.id;
     if (id === "cfSave") { let u = $("cfUrl").value.trim(); try { u = new URL(/^https?:\/\//.test(u) ? u : "https://" + u).origin; } catch (err) { u = ""; } const k = $("cfKey").value.trim().replace(/\s+/g, ""); if (!/^https:\/\/.+/.test(u) || k.length < 20) { cloudStatus = { msg: "Revisa la URL y la clave.", err: true }; renderCloud(); return; } cloud.url = u; cloud.key = k; saveCloud(); sb = null; cloudStatus = {}; renderCloud(); }
-    else if (id === "auIn" || id === "auUp") { const em = $("auEmail").value.trim(), pw = $("auPass").value; if (!em || !pw) return;
+    else if (id === "auIn" || id === "auUp") { const em = $("auEmail").value.trim().toLowerCase(), pw = $("auPass").value; if (!em || !pw) return;
       cloudAction(async () => { if (id === "auUp") { const d = await api.signUp(em, pw); if (!d.session) { cloudStatus = { msg: "Te hemos enviado un email. Pulsa el enlace para confirmar la cuenta y luego vuelve aquí y pulsa «Entrar».", err: false }; return; } } else await api.signIn(em, pw);
         await afterLogin(); await restoreKey(); cloudStatus = { msg: "", err: false }; if (ready()) await syncNow(); }); }
     else if (id === "hhCreate" || id === "hhJoin") { const nm = $("hhName").value.trim(), pw = $("hhPass").value, code = $("hhCode").value.trim();
