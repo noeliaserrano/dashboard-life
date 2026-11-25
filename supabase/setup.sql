@@ -99,3 +99,11 @@ revoke all on function public.join_household(text, text) from public, anon;
 grant execute on function public.create_household(text, text) to authenticated;
 grant execute on function public.join_household(text, text) to authenticated;
 grant execute on function public.is_member(uuid) to authenticated;
+
+-- Permisos para la app (por si el proyecto no los da automáticamente).
+-- Las reglas de arriba siguen decidiendo qué filas puede ver cada persona.
+grant usage on schema public to authenticated;
+grant select on public.households to authenticated;
+grant select, update on public.members to authenticated;
+grant select, insert, update on public.vault to authenticated;
+revoke all on public.households, public.members, public.vault from anon;
