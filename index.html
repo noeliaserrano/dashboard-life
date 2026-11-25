@@ -1984,7 +1984,8 @@ dialog.viewer .btn { background: #2b2b2b; color: #fff; box-shadow: none; }
   var cloud = (() => { try { return JSON.parse(localStorage.getItem(CK)) || {}; } catch (e) { return {}; } })();
   const saveCloud = () => { try { localStorage.setItem(CK, JSON.stringify(cloud)); } catch (e) {} };
   var sb = null, cryptoKey = null, cloudStatus = { msg: "", err: false, busy: false }, pushT = null, dirtyFlag = false;
-  const cfg = () => ({ url: CLOUD_URL || cloud.url || "", key: CLOUD_KEY || cloud.key || "" });
+  const cleanUrl = (u) => { if (!u) return ""; try { return new URL(/^https?:\/\//.test(u) ? u.trim() : "https://" + u.trim()).origin; } catch (e) { return ""; } };
+  const cfg = () => ({ url: cleanUrl(CLOUD_URL || cloud.url || ""), key: String(CLOUD_KEY || cloud.key || "").replace(/\s+/g, "") });
   const b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
   const unb64 = (s2) => Uint8Array.from(atob(s2), (c) => c.charCodeAt(0));
   async function deriveKey(pass, salt) {
@@ -2097,7 +2098,8 @@ dialog.viewer .btn { background: #2b2b2b; color: #fff; box-shadow: none; }
         '<label class="field">URL del proyecto<input type="text" id="cfUrl" placeholder="https://xxxx.supabase.co" autocomplete="off"></label><label class="field">Clave pública (anon)<input type="text" id="cfKey" autocomplete="off"></label><div class="chips"><button class="btn dark sm" type="button" id="cfSave">Conectar</button></div>';
     } else if (!cloud.uid) {
       h += '<p class="small muted">Entra con tu email. Cada uno tiene su propia cuenta.</p><label class="field">Email<input type="text" inputmode="email" id="auEmail" autocomplete="username"></label><label class="field">Contraseña<input type="password" id="auPass" autocomplete="current-password"></label>' +
-        '<div class="chips"><button class="btn dark sm" type="button" id="auIn">Entrar</button><button class="btn sm" type="button" id="auUp">Crear cuenta</button></div>';
+        '<div class="chips"><button class="btn dark sm" type="button" id="auIn">Entrar</button><button class="btn sm" type="button" id="auUp">Crear cuenta</button></div>' +
+        '<p class="xs muted">Conectada a ' + esc(c.url) + ' · <button class="link xs" type="button" id="cfReset">Cambiar conexión</button></p>';
     } else if (!cloud.household) {
       h += '<p class="small">Hola, ' + esc(cloud.email) + '. Ahora cread la casa: una persona la crea y la otra se une con el código.</p>' +
         '<label class="field">Tu nombre<input type="text" id="hhName"></label><label class="field">Clave de la casa (la sabréis solo vosotros, mín. 8 caracteres)<input type="password" id="hhPass" autocomplete="new-password"></label>' +
@@ -2137,6 +2139,7 @@ dialog.viewer .btn { background: #2b2b2b; color: #fff; box-shadow: none; }
     else if (id === "hhUnlock") { const pw = $("hhPass2").value; cloudAction(async () => { cryptoKey = await deriveKey(pw, cloud.salt); const rows = await api.getRows(["shared:" + cloud.household]);
       if (rows[0]) { try { await decryptObj(rows[0]); } catch (err) { cryptoKey = null; throw new Error("La clave de la casa no coincide."); } } await keepKey(); await syncNow(); }); }
     else if (id === "syncBtn") syncNow();
+    else if (id === "cfReset") { delete cloud.url; delete cloud.key; saveCloud(); sb = null; cloudStatus = {}; renderCloud(); }
     else if (id === "auOut") cloudAction(async () => { await api.signOut(); ["uid", "email", "household", "salt", "code", "jwk", "partner", "lastSync", "personalAt"].forEach((k) => delete cloud[k]); cryptoKey = null; saveCloud(); });
   });
   function defaultFresh() {
