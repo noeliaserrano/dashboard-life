@@ -221,6 +221,20 @@ dialog::backdrop { background: rgba(43,37,64,.35); }
 dialog .in { padding: 18px; display: grid; gap: 12px; }
 .sample { background: var(--pend-bg); color: var(--pend); border-radius: 14px; padding: 10px 12px; font-size: 13px; font-weight: 700; display: flex; justify-content: space-between; gap: 10px; align-items: center; flex-wrap: wrap; }
 
+/* turnos */
+.mgrid.shifts .mc { color: #2b2540; min-height: 56px; position: relative; }
+.mgrid.shifts .mc .ty { font-size: 11px; font-weight: 800; opacity: .85; }
+.mgrid.shifts .mc.dark { color: #fff; }
+.mgrid.shifts .mc[aria-pressed="true"] { box-shadow: inset 0 0 0 3px var(--ink); background: var(--c); color: inherit; }
+.mgrid.shifts .mc.today { outline: 2px dashed var(--ink); outline-offset: -4px; }
+.mgrid.shifts .mc .mk { position: absolute; top: 3px; right: 4px; font-size: 9px; font-weight: 900; background: #fff; color: var(--ink); border-radius: 5px; padding: 0 3px; line-height: 13px; }
+.tybtns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.tybtns button { border: 0; border-radius: 12px; padding: 10px 4px; font-weight: 800; font-size: 13px; background: var(--c); color: #2b2540; }
+.tybtns button.dark { color: #fff; }
+.tybtns button[aria-pressed="true"] { box-shadow: inset 0 0 0 3px var(--ink); }
+.cyc { display: flex; gap: 4px; flex-wrap: wrap; }
+.cyc button { width: 34px; height: 34px; border-radius: 9px; border: 0; background: var(--c); font-weight: 800; color: #2b2540; }
+.cyc button.dark { color: #fff; }
 /* casa */
 .subtabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
 .subtabs::-webkit-scrollbar { display: none; }
@@ -367,14 +381,25 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
   <datalist id="recipeNames"></datalist>
 </section>
 
+<!-- ================= TURNOS ================= -->
+<section class="view" data-view="turnos" hidden>
+  <div class="top"><div><div class="lbl" id="tToday"></div><h1 id="tMonth">Turnos</h1></div>
+    <div class="monthnav"><button type="button" id="tPrev" aria-label="Mes anterior">‹</button><button type="button" id="tNext" aria-label="Mes siguiente">›</button></div></div>
+  <div class="mlegend" id="tLegend"></div>
+  <div class="mgrid shifts" id="tGrid"></div>
+  <div class="card" id="tDay"></div>
+  <div class="card" id="tCount"></div>
+  <details class="card" id="tCfg"><summary class="card-h" style="cursor:pointer">Mi ciclo y horarios</summary><div id="tCfgBody" class="view" style="gap:10px;padding-top:10px"></div></details>
+</section>
+
 <!-- ================= AJUSTES ================= -->
 <section class="view" data-view="ajustes" hidden>
   <div class="top"><div><button class="btn ghost sm" type="button" data-go="inicio">‹ Volver</button><h1>Ajustes</h1></div></div>
   <div class="card" id="cloudCard"></div>
   <div class="card">
     <div class="card-h">Secciones que uso</div>
-    <div class="chips"><button type="button" class="chip" id="prefStudy" aria-pressed="true">Estudio</button></div>
-    <p class="xs muted">Si no estudias, quita Estudio del menú. Cada perfil tiene su propia configuración.</p>
+    <div class="chips"><button type="button" class="chip" id="prefStudy" aria-pressed="true">Estudio</button><button type="button" class="chip" id="prefShifts" aria-pressed="false">Trabajo a turnos</button></div>
+    <p class="xs muted">Si no estudias, quita Estudio del menú. Si trabajas a turnos, activa Turnos: tu ciclo sustituye al horario fijo. Cada perfil tiene su propia configuración.</p>
   </div>
   <div class="card">
     <div class="card-h">Trabajo</div>
@@ -442,6 +467,7 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
   <a href="#agenda" data-tab="agenda">Agenda</a>
   <a href="#dinero" data-tab="dinero">Dinero<span class="badge" id="bDinero"></span></a>
   <a href="#casa" data-tab="casa">Casa<span class="badge" id="bCasa"></span></a>
+  <a href="#turnos" data-tab="turnos" hidden>Turnos</a>
 </div></nav>
 
 <dialog id="capDlg">
@@ -682,8 +708,8 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
   // respetando el máximo de estudio de cada día. Los pasos que cambiaste de día a mano se respetan.
   function freeIntervals(d) {
     if (dayKind(d) === "rest") return [];
-    const bl = dayBlocks(d), work = bl.find((b) => b.t === "work");
-    let iv = [[work ? work.e : 9 * 60 + 30, toMin(SC().dayEnd)]];
+    const bl = dayBlocks(d);
+    let iv = [freeWindow(d, bl)];
     bl.filter((b) => b.t !== "work").forEach((b) => {
       iv = iv.flatMap(([a, z]) => b.e <= a || b.s >= z ? [[a, z]] : [[a, b.s], [b.e, z]]);
     });
@@ -749,8 +775,9 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
   const toMin = (t) => { const [h, m] = String(t || "0:0").split(":").map(Number); return h * 60 + (m || 0); };
   const hm = (m) => Math.floor(m / 60) + ":" + pad(m % 60);
   const SC = () => state.sched;
-  const workOn = (d) => SC().work.days.includes(parse(d).getDay()) && !dayKind(d);
-  const isShort = (d) => workOn(d) && (SC().work.shortDays.includes(parse(d).getDay()) || offOn(d).some((o) => o.kind === "short"));
+  const shiftsOn = () => !!(state.shifts && state.shifts.on);
+  const workOn = (d) => shiftsOn() ? ["M", "T", "N"].includes(shiftOf(d)) : SC().work.days.includes(parse(d).getDay()) && !dayKind(d);
+  const isShort = (d) => !shiftsOn() && workOn(d) && (SC().work.shortDays.includes(parse(d).getDay()) || offOn(d).some((o) => o.kind === "short"));
   const gymOn = (d) => SC().gym.days.includes(parse(d).getDay()) && dayKind(d) !== "rest";
   const eventsOn = (d) => (state.events || []).filter((ev) => ev.date === d || (ev.weekly && d > ev.date && parse(d).getDay() === parse(ev.date).getDay() && (!ev.until || d <= ev.until)))
     .sort((a, b) => toMin(a.start) - toMin(b.start));
@@ -762,7 +789,12 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
     evs.forEach((b) => out.push(b));
     const busy = evs.map((b) => [b.s, b.e]);
     let free = 10 * 60; // día sin trabajo: empieza a contar a las 10:00
-    if (workOn(d)) {
+    if (shiftsOn()) {
+      const ty = shiftOf(d), hrs = (state.shifts.hours || {})[ty];
+      if (hrs) { const a = toMin(hrs[0]); let z = toMin(hrs[1]); if (z <= a) z = 24 * 60 - 1;
+        out.push({ t: "work", s: a, e: z, label: SHIFT[ty].name + " · " + hm(toMin(hrs[0])) + "–" + hm(toMin(hrs[1])) }); free = a < 12 * 60 ? z : 10 * 60; }
+      else if (ty === "S") { out.push({ t: "work", s: 0, e: 14 * 60, label: "Saliente · descansa" }); free = 14 * 60; }
+    } else if (workOn(d)) {
       const end = toMin(isShort(d) ? s.work.shortEnd : s.work.end);
       out.push({ t: "work", s: toMin(s.work.start), e: end, short: isShort(d) });
       free = end;
@@ -776,9 +808,15 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
     }
     return out.sort((a, b) => a.s - b.s);
   }
+  // Rato del día en que se puede estudiar: después del turno de mañana, antes del de tarde o noche.
+  function freeWindow(d, bl) {
+    const w = (bl || dayBlocks(d)).find((b) => b.t === "work"), end = toMin(SC().dayEnd);
+    if (!w) return [9 * 60 + 30, end];
+    return w.s < 12 * 60 ? [w.e, end] : [9 * 60 + 30, Math.min(end, w.s - 30)];
+  }
   function bestGap(d) {
-    const bl = dayBlocks(d), work = bl.find((b) => b.t === "work");
-    let start = work ? work.e : 10 * 60; const end = toMin(SC().dayEnd);
+    const bl = dayBlocks(d), win = freeWindow(d, bl);
+    let start = win[0]; const end = win[1];
     let best = null;
     bl.filter((b) => b.t !== "work" && b.e > start).forEach((b) => { if (b.s - start >= 30 && (!best || b.s - start > best[1] - best[0])) best = [start, Math.min(b.s, end)]; start = Math.max(start, b.e); });
     if (end - start >= 30 && (!best || end - start > best[1] - best[0])) best = [start, end];
@@ -1022,7 +1060,7 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
   let selDay = today(), agWeek = monday(today()), moneyYM = ymOf(today()), openCat = null, openTx = null, fixedEdit = false, offKind = "rest", openFx = null, agMode = "week", agMonth = ymOf(today()), agSel = today();
 
   function render() {
-    applyPrefs(); renderInicio(); renderHomeToday(); renderPosits(); renderEstudio(); renderAgenda(); renderDinero(); renderCasa(); renderCloud(); renderBadges(); renderRemind();
+    applyPrefs(); renderTurnos(); renderInicio(); renderHomeToday(); renderPosits(); renderEstudio(); renderAgenda(); renderDinero(); renderCasa(); renderCloud(); renderBadges(); renderRemind();
   }
   function renderBadges() {
     $("bPosits").textContent = state.notes.filter((n) => !n.done).length || "";
@@ -1100,7 +1138,7 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
     fixedOn(ymOf(d)).filter((x) => x.date === d).forEach((x) => items.push({ s: -1, html: ev("#fde7c4", "€", esc(x.f.name) + " · " + (x.amount ? eur(x.amount) : "importe sin poner"), x.paid ? "pagado" : diff(d) === 0 ? "se cobra hoy" : "se cobra este día", x.paid, '<button class="ck" type="button" data-pay="' + x.f.id + "|" + x.date + '" aria-pressed="' + x.paid + '" aria-label="Pagado">' + (x.paid ? "✓" : "") + "</button>") }));
     dayBlocks(d).forEach((b) => {
       const h = hm(b.s), dur = b.e - b.s;
-      if (b.t === "work") items.push({ s: b.s, html: ev("#cfe3f7", h, b.short ? "Jornada reducida" : "Trabajo", hm(b.s) + " – " + hm(b.e), false, "", true) });
+      if (b.t === "work") items.push({ s: b.s, html: ev(b.label ? SHIFT[shiftOf(d)].c : "#cfe3f7", h, b.label ? b.label.split(" · ")[0] : b.short ? "Jornada reducida" : "Trabajo", b.label ? b.label.split(" · ")[1] : hm(b.s) + " – " + hm(b.e), false, "", true) });
       else if (b.t === "event") items.push({ s: b.s, html: ev("#e3d8f8", h, esc(b.title), "Cita · " + hm(b.s) + " – " + hm(b.e), false, "") });
       else { const k = b.t; items.push({ s: b.s, html: ev("#fbd6e3", h, k === "dog" ? "Paseo" + (s.dog.name ? " con " + esc(s.dog.name) : "") : "Gimnasio", fdur(dur), !!rt[k], '<button class="ck" type="button" data-rt="' + k + "|" + d + '" aria-pressed="' + !!rt[k] + '" aria-label="Hecho">' + (rt[k] ? "✓" : "") + "</button>") }); }
     });
@@ -1172,7 +1210,8 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
   // Lo que hay un día en la agenda: citas, recibos, entregas y días especiales.
   function agItems(d) {
     const items = [];
-      eventsOn(d).forEach((e) => items.push('<div class="agev" style="--c:#c6aff0"><span class="c"></span><span>' + hm(toMin(e.start)) + " " + esc(e.title) + "<small>" + hm(toMin(e.start)) + "–" + hm(toMin(e.end)) + (e.weekly ? " · cada semana" : "") + '</small></span><button class="x" type="button" data-evdel="' + e.id + '" aria-label="Borrar">' + (delArmed === e.id ? "¿Borrar?" : "✕") + "</button></div>"));
+      if (shiftsOn()) { const ty = shiftOf(d); if (ty !== "L") items.push('<div class="agev" style="--c:' + SHIFT[ty].c + '"><span class="c"></span><span>' + SHIFT[ty].name + (SH().hours[ty] ? "<small>" + hm(toMin(SH().hours[ty][0])) + "–" + hm(toMin(SH().hours[ty][1])) + "</small>" : "") + "</span><span></span></div>"); }
+      eventsOn(d).forEach((e) => items.push('<div class="agev" style="--c:' + (e.kind === "juicio" ? "#6f66c9" : e.kind === "carrera" ? "#f7b46f" : "#c6aff0") + '"><span class="c"></span><span>' + hm(toMin(e.start)) + " " + (e.kind === "juicio" ? "Juicio: " : e.kind === "carrera" ? "Carrera: " : "") + esc(e.title) + "<small>" + hm(toMin(e.start)) + "–" + hm(toMin(e.end)) + (e.weekly ? " · cada semana" : "") + '</small></span><button class="x" type="button" data-evdel="' + e.id + '" aria-label="Borrar">' + (delArmed === e.id ? "¿Borrar?" : "✕") + "</button></div>"));
       fixedOn(ymOf(d)).filter((x) => x.date === d).forEach((x) => items.push('<div class="agev" style="--c:#f7b46f"><span class="c"></span><span>' + esc(x.f.name) + " · " + (x.amount ? eur(x.amount) : "sin importe") + "<small>" + (x.paid ? "pagado" : "recibo") + "</small></span><span></span></div>"));
       state.plans.filter((p) => !p.done && p.due === d).forEach((p) => items.push('<div class="agev" style="--c:#a8dc96"><span class="c"></span><span>Entrega: ' + esc(p.title) + "<small>" + p.kind + "</small></span><span></span></div>"));
       const k = dayKind(d); if (k || isShort(d)) items.push('<div class="agev" style="--c:#97cbee"><span class="c"></span><span>' + (k === "rest" ? "Descanso" : k === "free" ? "Día libre" : "Jornada reducida") + "<small>" + (isShort(d) ? "sales a las " + hm(toMin(SC().work.shortEnd)) : (offOn(d)[0] || {}).name || "") + "</small></span><span></span></div>");
@@ -1345,7 +1384,7 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
     if (ds.pedel) { if (delArmed !== ds.pedel) { delArmed = ds.pedel; renderEstudio(); return; } state.plans = state.plans.filter((x) => x.id !== ds.pedel); editPlan = openPlan = delArmed = null; save(); render(); return; }
     if (ds.pdone) { const p = findPlan(ds.pdone); p.done = true; p.doneAt = t; openPlan = null; save(); render(); toastAct("¡Entregado! Uno menos.", "Deshacer", () => { p.done = false; save(); render(); }); return; }
     // agenda
-    if (ds.evdel) { if (delArmed !== ds.evdel) { delArmed = ds.evdel; renderAgenda(); return; } state.events = state.events.filter((x) => x.id !== ds.evdel); delArmed = null; scheduleAll(t); save(); render(); toast("Cita borrada."); return; }
+    if (ds.evdel) { if (delArmed !== ds.evdel) { delArmed = ds.evdel; renderAgenda(); renderTurnos(); return; } state.events = state.events.filter((x) => x.id !== ds.evdel); delArmed = null; scheduleAll(t); save(); render(); toast("Cita borrada."); return; }
     if (ds.offdel) { state.daysOff = state.daysOff.filter((o) => o.id !== ds.offdel); scheduleAll(t); save(); render(); return; }
     if (ds.offkind) { offKind = ds.offkind; document.querySelectorAll("[data-offkind]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.offkind === offKind)); return; }
     // dinero
@@ -1521,6 +1560,95 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
     if (label) $("toastBtn").onclick = () => { t.hidden = true; fn(); };
   }
 
+
+
+  // =====================================================================
+  // TURNOS · ciclo que se repite (p. ej. M M T T N N S L L L L L) + cambios por día
+  // =====================================================================
+  const SHIFT = {
+    M: { name: "Mañana", c: "#f6dc6b" }, T: { name: "Tarde", c: "#f7b46f" }, N: { name: "Noche", c: "#6f66c9", dark: true },
+    S: { name: "Saliente", c: "#c9d3e6" }, L: { name: "Libre", c: "#a8dc96" }, V: { name: "Vacaciones", c: "#7fd1c7" }, AP: { name: "Asuntos propios", c: "#f5a6c1" }
+  };
+  function defaultShifts() {
+    return { on: false, start: "2026-11-29", pattern: ["M", "M", "T", "T", "N", "N", "S", "L", "L", "L", "L", "L"],
+      hours: { M: ["07:00", "15:00"], T: ["15:00", "23:00"], N: ["23:00", "07:00"] }, over: {}, vacTotal: 22, apTotal: 6 };
+  }
+  const SH = () => state.shifts;
+  function shiftOf(d) {
+    const sh = SH(); if (!sh) return "L";
+    if (sh.over && sh.over[d]) return sh.over[d];
+    const n = Math.round((parse(d) - parse(sh.start)) / 86400000), L = sh.pattern.length;
+    return sh.pattern[((n % L) + L) % L];
+  }
+  let tYM = ymOf(today()), tSel = today(), tAdd = null;
+  function renderTurnos() {
+    if (!shiftsOn()) return;
+    const sh = SH(), t = today(), ty = shiftOf(t);
+    $("tToday").textContent = "Hoy: " + SHIFT[ty].name + (sh.hours[ty] ? " · " + hm(toMin(sh.hours[ty][0])) + "–" + hm(toMin(sh.hours[ty][1])) : "");
+    const [y, mo] = tYM.split("-").map(Number);
+    $("tMonth").textContent = cap1(MONL[mo - 1]) + (y !== new Date().getFullYear() ? " " + y : "");
+    $("tLegend").innerHTML = Object.entries(SHIFT).map(([k, v]) => '<span><i style="--c:' + v.c + '"></i>' + v.name + "</span>").join("");
+    let g = ["L", "M", "X", "J", "V", "S", "D"].map((x) => '<span class="dw">' + x + "</span>").join("");
+    const start = monday(tYM + "-01");
+    for (let i = 0; i < 42; i++) {
+      const d = addDays(start, i); if (i >= 35 && ymOf(d) !== tYM) break;
+      const k = shiftOf(d), evs = eventsOn(d), mk = (evs.some((e) => e.kind === "juicio") ? "J" : "") + (evs.some((e) => e.kind === "carrera") ? "C" : "") + (evs.some((e) => !e.kind) ? "•" : "");
+      g += '<button type="button" class="mc' + (ymOf(d) !== tYM ? " out" : "") + (d === t ? " today" : "") + (SHIFT[k].dark ? " dark" : "") + '" style="--c:' + SHIFT[k].c + ";background:" + SHIFT[k].c + '" data-tpick="' + d + '" aria-pressed="' + (d === tSel) + '" aria-label="' + fmt(d) + ", " + SHIFT[k].name + '">' + parse(d).getDate() + '<span class="ty">' + k + "</span>" + (mk ? '<span class="mk">' + mk + "</span>" : "") + "</button>";
+    }
+    $("tGrid").innerHTML = g;
+    // día seleccionado
+    const k = shiftOf(tSel), base = (() => { const o = sh.over[tSel]; delete sh.over[tSel]; const b = shiftOf(tSel); if (o) sh.over[tSel] = o; return b; })();
+    let h = '<div class="card-h"><span>' + cap1(DOWL[parse(tSel).getDay()]) + " " + parse(tSel).getDate() + " de " + MONL[parse(tSel).getMonth()] + '</span><span class="pill soft">' + SHIFT[k].name + "</span></div>";
+    h += '<div class="tybtns">' + ["M", "T", "N", "S", "L", "V", "AP"].map((x) => '<button type="button" data-tset="' + x + '" style="--c:' + SHIFT[x].c + '" class="' + (SHIFT[x].dark ? "dark" : "") + '" aria-pressed="' + (k === x) + '">' + (x === "AP" ? "As. propios" : SHIFT[x].name) + "</button>").join("") +
+      (sh.over[tSel] ? '<button type="button" data-tset="" style="--c:var(--soft)">Volver al ciclo (' + SHIFT[base].name.toLowerCase() + ")</button>" : "") + "</div>";
+    const evs = eventsOn(tSel);
+    h += evs.map((e) => '<div class="agev" style="--c:' + (e.kind === "juicio" ? "#6f66c9" : e.kind === "carrera" ? "#f7b46f" : "#c6aff0") + '"><span class="c"></span><span>' + (e.kind === "juicio" ? "Juicio" : e.kind === "carrera" ? "Carrera" : "") + (e.kind ? ": " : "") + esc(e.title) + "<small>" + hm(toMin(e.start)) + (e.place ? " · " + esc(e.place) : "") + '</small></span><button class="x" type="button" data-evdel="' + e.id + '" aria-label="Borrar">' + (delArmed === e.id ? "¿Borrar?" : "✕") + "</button></div>").join("");
+    if (tAdd) {
+      h += '<div class="g2"><label class="field full">' + (tAdd === "juicio" ? "Juzgado o asunto" : "Nombre de la carrera") + '<input type="text" id="taTitle" placeholder="' + (tAdd === "juicio" ? "Juzgado nº 3" : "Carrera de …") + '"></label>' +
+        '<label class="field">Hora<input type="time" id="taTime" value="' + (tAdd === "juicio" ? "09:30" : "09:00") + '"></label><label class="field">' + (tAdd === "juicio" ? "Lugar (opcional)" : "Duración (h)") + '<input type="' + (tAdd === "juicio" ? "text" : "number") + '" id="taExtra" value="' + (tAdd === "juicio" ? "" : "4") + '"></label></div>' +
+        '<div class="chips"><button class="btn dark sm" type="button" id="taSave">Guardar</button><button class="btn sm" type="button" id="taCancel">Cancelar</button></div>';
+    } else h += '<div class="chips"><button class="btn sm" type="button" data-tadd="juicio">+ Juicio</button><button class="btn sm" type="button" data-tadd="carrera">+ Carrera</button></div>';
+    $("tDay").innerHTML = h;
+    // contadores del año
+    const yr = tYM.slice(0, 4), overs = Object.entries(sh.over).filter(([d]) => d.startsWith(yr));
+    const vac = overs.filter(([, v]) => v === "V").length, ap = overs.filter(([, v]) => v === "AP").length;
+    const yev = state.events.filter((e) => e.date.startsWith(yr) && !e.weekly), jm = yev.filter((e) => e.kind === "juicio" && e.date.startsWith(tYM)).length, cm = yev.filter((e) => e.kind === "carrera" && e.date.startsWith(tYM)).length;
+    $("tCount").innerHTML = '<div class="card-h"><span>' + yr + "</span></div>" +
+      '<div class="sum"><span>Vacaciones usadas</span><span class="n">' + vac + " de " + sh.vacTotal + "</span><span>Asuntos propios usados</span><span class=\"n\">" + ap + " de " + sh.apTotal + "</span>" +
+      "<span>Juicios en " + MONL[+tYM.slice(5) - 1] + '</span><span class="n">' + jm + "</span><span>Carreras en " + MONL[+tYM.slice(5) - 1] + '</span><span class="n">' + cm + "</span></div>";
+    // configuración del ciclo
+    if (!$("tCfgBody").contains(document.activeElement)) $("tCfgBody").innerHTML =
+      '<label class="field">El ciclo empieza el<input type="date" id="tcStart" value="' + sh.start + '"></label>' +
+      '<div class="field">Ciclo (toca para cambiar cada día)<div class="cyc">' + sh.pattern.map((x, i) => '<button type="button" data-tcyc="' + i + '" style="--c:' + SHIFT[x].c + '" class="' + (SHIFT[x].dark ? "dark" : "") + '">' + x + "</button>").join("") + '<button type="button" data-tcycadd="1" style="--c:var(--soft)">+</button><button type="button" data-tcycdel="1" style="--c:var(--soft)">−</button></div></div>' +
+      ["M", "T", "N"].map((x) => '<div class="g2"><label class="field">' + SHIFT[x].name + ": entrada<input type=\"time\" data-thr=\"" + x + '|0" value="' + sh.hours[x][0] + '"></label><label class="field">salida<input type="time" data-thr="' + x + '|1" value="' + sh.hours[x][1] + '"></label></div>').join("") +
+      '<div class="g2"><label class="field">Días de vacaciones al año<input type="number" id="tcVac" min="0" value="' + sh.vacTotal + '"></label><label class="field">Asuntos propios al año<input type="number" id="tcAp" min="0" value="' + sh.apTotal + '"></label></div>';
+  }
+  const shiftChanged = () => { scheduleAll(today()); save(); render(); };
+  document.addEventListener("click", (e) => {
+    const el = e.target.closest("[data-tpick],[data-tset],[data-tadd],[data-tcyc],[data-tcycadd],[data-tcycdel],#taSave,#taCancel,#tPrev,#tNext,#prefShifts");
+    if (!el) return;
+    const ds = el.dataset;
+    if (el.id === "prefShifts") { if (!state.shifts) state.shifts = defaultShifts(); state.shifts.on = !state.shifts.on; shiftChanged(); if (state.shifts.on) toast("Turnos activados. Revisa tu ciclo en la pestaña Turnos."); return; }
+    if (el.id === "tPrev" || el.id === "tNext") { tYM = addMonths(tYM, el.id === "tPrev" ? -1 : 1); tSel = tYM === ymOf(today()) ? today() : tYM + "-01"; tAdd = null; renderTurnos(); return; }
+    if (ds.tpick) { tSel = ds.tpick; tAdd = null; delArmed = null; renderTurnos(); return; }
+    if (ds.tset != null) { if (ds.tset) SH().over[tSel] = ds.tset; else delete SH().over[tSel]; shiftChanged(); return; }
+    if (ds.tadd) { tAdd = ds.tadd; renderTurnos(); setTimeout(() => $("taTitle") && $("taTitle").focus(), 30); return; }
+    if (el.id === "taCancel") { tAdd = null; renderTurnos(); return; }
+    if (el.id === "taSave") { const ti = $("taTitle").value.trim() || (tAdd === "juicio" ? "Juicio" : "Carrera"), st = $("taTime").value || "09:00", ex = $("taExtra").value;
+      const dur = tAdd === "juicio" ? 180 : Math.max(1, +ex || 4) * 60, en = hhmm(Math.min(toMin(st) + dur, 1439));
+      state.events.push({ id: uid(), title: ti, date: tSel, start: st, end: en, weekly: false, until: null, kind: tAdd, place: tAdd === "juicio" ? ex.trim() : "" });
+      const k = tAdd; tAdd = null; shiftChanged(); toast((k === "juicio" ? "Juicio" : "Carrera") + " apuntado el " + fmt(tSel) + "."); return; }
+    if (ds.tcyc != null) { const order = ["M", "T", "N", "S", "L"], i = +ds.tcyc; SH().pattern[i] = order[(order.indexOf(SH().pattern[i]) + 1) % order.length]; shiftChanged(); return; }
+    if (ds.tcycadd) { SH().pattern.push("L"); shiftChanged(); return; }
+    if (ds.tcycdel) { if (SH().pattern.length > 1) SH().pattern.pop(); shiftChanged(); return; }
+  });
+  document.addEventListener("change", (e) => {
+    const el = e.target; if (!SH()) return;
+    if (el.id === "tcStart" && el.value) { SH().start = el.value; shiftChanged(); }
+    else if (el.dataset && el.dataset.thr) { const [k, i] = el.dataset.thr.split("|"); if (el.value) SH().hours[k][+i] = el.value; shiftChanged(); }
+    else if (el.id === "tcVac") { SH().vacTotal = Math.max(0, +el.value || 0); save(); renderTurnos(); }
+    else if (el.id === "tcAp") { SH().apTotal = Math.max(0, +el.value || 0); save(); renderTurnos(); }
+  });
 
   // =====================================================================
   // CASA · lo común de los dos (menú, compra, recetas, gastos, pósits)
@@ -1724,10 +1852,12 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
     if (el.id === "hFixAdd") { H().fixed.push(touch({ id: uid(), name: "Comunidad", payer: other(me()) })); save(); rerender(); toast("Añadido «Comunidad». Cámbiale el nombre si no es eso."); return; }
   });
   function applyPrefs() {
-    const hide = !!(state.prefs && state.prefs.hideStudy);
+    const hide = !!(state.prefs && state.prefs.hideStudy), sh = shiftsOn();
     document.querySelector('[data-tab="estudio"]').hidden = hide;
-    document.querySelector("nav.tabs .in").style.setProperty("--tabs", hide ? 5 : 6);
+    document.querySelector('[data-tab="turnos"]').hidden = !sh;
+    document.querySelector("nav.tabs .in").style.setProperty("--tabs", 5 + (hide ? 0 : 1) + (sh ? 1 : 0));
     if ($("prefStudy")) $("prefStudy").setAttribute("aria-pressed", !hide);
+    if ($("prefShifts")) $("prefShifts").setAttribute("aria-pressed", sh);
   }
 
   // =====================================================================
@@ -1908,7 +2038,7 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
   window.__miPared = { setApi: (a) => { api = Object.assign({}, api, a); }, setCfg: (u, k) => { cloud.url = u; cloud.key = k; saveCloud(); }, syncNow, mergeHome, state: () => state };
 
   // ---------- páginas ----------
-  const VIEWS = ["inicio", "posits", "estudio", "agenda", "dinero", "casa", "ajustes"];
+  const VIEWS = ["inicio", "posits", "estudio", "agenda", "dinero", "casa", "turnos", "ajustes"];
   function route() {
     const v = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "inicio";
     document.querySelectorAll("[data-view]").forEach((x) => { x.hidden = x.dataset.view !== v; });
@@ -1926,6 +2056,7 @@ dialog .in { padding: 18px; display: grid; gap: 12px; }
   if (!state.home) state.home = defaultHome(!!state.sample);
   if (!state.myRole) state.myRole = "A";
   if (!state.prefs) state.prefs = {};
+  if (!state.shifts) state.shifts = defaultShifts();
   if (!state.plansV) {
     state.notes.filter((n) => !n.done && n.due && n.area !== "life" && isDeadline(n.text)).forEach((n) => { state.plans.push(makePlan(n.text, n.due, n.area || "uni")); n.done = true; n.tossed = true; n.doneAt = today(); });
     state.plansV = 1;
