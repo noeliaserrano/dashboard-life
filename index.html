@@ -1230,7 +1230,7 @@ dialog.viewer .btn { background: #2b2b2b; color: #fff; box-shadow: none; }
   function agItems(d) {
     const items = [];
       if (shiftsOn()) { const ty = shiftOf(d); if (ty !== "L") items.push('<div class="agev" style="--c:' + SHIFT[ty].c + '"><span class="c"></span><span>' + SHIFT[ty].name + (SH().hours[ty] ? "<small>" + hm(toMin(SH().hours[ty][0])) + "–" + hm(toMin(SH().hours[ty][1])) + "</small>" : "") + "</span><span></span></div>"); }
-      eventsOn(d).forEach((e) => items.push('<div class="agev" style="--c:' + (e.kind === "juicio" ? "#6f66c9" : e.kind === "carrera" ? "#f7b46f" : "#c6aff0") + '"><span class="c"></span><span>' + hm(toMin(e.start)) + " " + (e.kind === "juicio" ? "Juicio: " : e.kind === "carrera" ? "Carrera: " : "") + esc(e.title) + ((e.photos || []).length ? " 📎" : "") + "<small>" + hm(toMin(e.start)) + "–" + hm(toMin(e.end)) + (e.weekly ? " · cada semana" : "") + '</small></span><button class="x" type="button" data-evdel="' + e.id + '" aria-label="Borrar">' + (delArmed === e.id ? "¿Borrar?" : "✕") + "</button></div>"));
+      eventsOn(d).forEach((e) => items.push('<div class="agev" style="--c:' + (e.kind === "juicio" ? "#6f66c9" : e.kind === "carrera" ? "#f7b46f" : "#c6aff0") + '"><span class="c"></span><span>' + (e.part ? "" : hm(toMin(e.start)) + " ") + (e.kind === "juicio" ? "Juicio: " : e.kind === "carrera" ? "Carrera: " : "") + esc(e.title) + ((e.photos || []).length ? " 📎" : "") + "<small>" + (e.part ? (e.part === "m" ? "por la mañana" : "por la tarde") : hm(toMin(e.start)) + "–" + hm(toMin(e.end))) + (e.weekly ? " · cada semana" : "") + '</small></span><button class="x" type="button" data-evdel="' + e.id + '" aria-label="Borrar">' + (delArmed === e.id ? "¿Borrar?" : "✕") + "</button></div>"));
       fixedOn(ymOf(d)).filter((x) => x.date === d).forEach((x) => items.push('<div class="agev" style="--c:#f7b46f"><span class="c"></span><span>' + esc(x.f.name) + " · " + (x.amount ? eur(x.amount) : "sin importe") + "<small>" + (x.paid ? "pagado" : "recibo") + "</small></span><span></span></div>"));
       state.plans.filter((p) => !p.done && p.due === d).forEach((p) => items.push('<div class="agev" style="--c:#a8dc96"><span class="c"></span><span>Entrega: ' + esc(p.title) + "<small>" + p.kind + "</small></span><span></span></div>"));
       const k = dayKind(d); if (k || isShort(d)) items.push('<div class="agev" style="--c:#97cbee"><span class="c"></span><span>' + (k === "rest" ? "Descanso" : k === "free" ? "Día libre" : "Jornada reducida") + "<small>" + (isShort(d) ? "sales a las " + hm(toMin(SC().work.shortEnd)) : (offOn(d)[0] || {}).name || "") + "</small></span><span></span></div>");
@@ -1531,7 +1531,9 @@ dialog.viewer .btn { background: #2b2b2b; color: #fff; box-shadow: none; }
     const add = (key, d, min, title) => { const at = atStr(d, Math.max(0, min)); if (at > nowS) out.push({ key, at, title: clean(title) }); };
     for (let i = 0; i < 14; i++) {
       const d = addDays(today(), i), parts = [];
-      eventsOn(d).forEach((e) => { parts.push(e.title + " " + hm(toMin(e.start))); add("ev|" + e.id + "|" + d + "|" + e.start, d, toMin(e.start) - (+r.before || 0), e.title + " a las " + hm(toMin(e.start))); });
+      eventsOn(d).forEach((e) => {
+        if (e.kind === "carrera" && e.part) { const pm = e.part === "m" ? "por la mañana" : "por la tarde"; parts.push("carrera en " + e.title + " " + pm); add("ev|" + e.id + "|" + d + "|" + e.part, addDays(d, -1), 21 * 60, "Mañana: carrera en " + e.title + " " + pm); return; }
+        parts.push((e.kind === "juicio" ? "juicio " : "") + e.title + " " + hm(toMin(e.start))); add("ev|" + e.id + "|" + d + "|" + e.start, d, toMin(e.start) - (+r.before || 0), (e.kind === "juicio" ? "Juicio: " : "") + e.title + " a las " + hm(toMin(e.start))); });
       state.plans.filter((p) => !p.done && p.due === d).forEach((p) => { parts.push(p.kind.toLowerCase() + " " + p.title); add("pl|" + p.id + "|" + d, addDays(d, -1), 20 * 60, "Mañana: " + p.kind.toLowerCase() + " · " + p.title); });
       fixedOn(ymOf(d)).filter((x) => x.date === d && !x.paid).forEach((x) => { parts.push(x.f.name + (x.amount ? " " + eur(x.amount) : "")); add("fx|" + x.f.id + "|" + d, addDays(d, -1), mor, "Mañana te cobran " + x.f.name + (x.amount ? " · " + eur(x.amount) : "")); });
       state.notes.filter((n) => !n.done && n.due === d).forEach((n) => parts.push(n.text));
@@ -1601,7 +1603,8 @@ dialog.viewer .btn { background: #2b2b2b; color: #fff; box-shadow: none; }
     const n = Math.round((parse(d) - parse(sh.start)) / 86400000), L = sh.pattern.length;
     return sh.pattern[((n % L) + L) % L];
   }
-  let tYM = ymOf(today()), tSel = today(), tAdd = null;
+  let tYM = ymOf(today()), tSel = today(), tAdd = null, tPart = "m";
+  const partTxt = (e) => e.part === "t" ? "Tarde" : e.part === "m" ? "Mañana" : hm(toMin(e.start));
   function renderTurnos() {
     if (!shiftsOn()) return;
     const sh = SH(), t = today(), ty = shiftOf(t);
@@ -1623,9 +1626,13 @@ dialog.viewer .btn { background: #2b2b2b; color: #fff; box-shadow: none; }
     h += '<div class="tybtns">' + ["M", "T", "N", "S", "L", "V", "AP"].map((x) => '<button type="button" data-tset="' + x + '" style="--c:' + SHIFT[x].c + '" class="' + (SHIFT[x].dark ? "dark" : "") + '" aria-pressed="' + (k === x) + '">' + (x === "AP" ? "As. propios" : SHIFT[x].name) + "</button>").join("") +
       (sh.over[tSel] ? '<button type="button" data-tset="" style="--c:var(--soft)">Volver al ciclo (' + SHIFT[base].name.toLowerCase() + ")</button>" : "") + "</div>";
     const evs = eventsOn(tSel);
-    h += evs.map((e) => '<div class="agev" style="--c:' + (e.kind === "juicio" ? "#6f66c9" : e.kind === "carrera" ? "#f7b46f" : "#c6aff0") + '"><span class="c"></span><span>' + (e.kind === "juicio" ? "Juicio" : e.kind === "carrera" ? "Carrera" : "") + (e.kind ? ": " : "") + esc(e.title) + "<small>" + hm(toMin(e.start)) + (e.place ? " · " + esc(e.place) : "") + ((e.photos || []).length ? " · " + e.photos.length + (e.photos.length === 1 ? " foto" : " fotos") : "") + '</small></span><button class="x" type="button" data-evdel="' + e.id + '" aria-label="Borrar">' + (delArmed === e.id ? "¿Borrar?" : "✕") + "</button></div>" +
+    h += evs.map((e) => '<div class="agev" style="--c:' + (e.kind === "juicio" ? "#6f66c9" : e.kind === "carrera" ? "#f7b46f" : "#c6aff0") + '"><span class="c"></span><span>' + (e.kind === "juicio" ? "Juicio" : e.kind === "carrera" ? "Carrera" : "") + (e.kind ? ": " : "") + esc(e.title) + "<small>" + partTxt(e) + (e.place && e.kind !== "carrera" ? " · " + esc(e.place) : "") + ((e.photos || []).length ? " · " + e.photos.length + (e.photos.length === 1 ? " foto" : " fotos") : "") + '</small></span><button class="x" type="button" data-evdel="' + e.id + '" aria-label="Borrar">' + (delArmed === e.id ? "¿Borrar?" : "✕") + "</button></div>" +
       (e.kind === "juicio" ? '<div class="thumbs">' + (e.photos || []).map((pid) => '<button type="button" class="thumb" data-pview="' + e.id + "|" + pid + '" aria-label="Ver citación"><img data-pimg="' + pid + '" alt=""></button>').join("") + '<button type="button" class="thumb add" data-tphoto="' + e.id + '">+ Foto</button></div>' : "")).join("");
-    if (tAdd) {
+    if (tAdd === "carrera") {
+      h += '<label class="field">Lugar<input type="text" id="taTitle" placeholder="Valdemorillo, Pozuelo…"></label><div class="chips">' +
+        [["m", "Mañana"], ["t", "Tarde"]].map(([k, l]) => '<button type="button" class="chip" data-tpart="' + k + '" aria-pressed="' + (tPart === k) + '">' + l + "</button>").join("") + "</div>" +
+        '<div class="chips"><button class="btn dark sm" type="button" id="taSave">Guardar</button><button class="btn sm" type="button" id="taCancel">Cancelar</button></div>';
+    } else if (tAdd) {
       h += '<div class="g2"><label class="field full">' + (tAdd === "juicio" ? "Juzgado o asunto" : "Nombre de la carrera") + '<input type="text" id="taTitle" placeholder="' + (tAdd === "juicio" ? "Juzgado nº 3" : "Carrera de …") + '"></label>' +
         '<label class="field">Hora<input type="time" id="taTime" value="' + (tAdd === "juicio" ? "09:30" : "09:00") + '"></label><label class="field">' + (tAdd === "juicio" ? "Lugar (opcional)" : "Duración (h)") + '<input type="' + (tAdd === "juicio" ? "text" : "number") + '" id="taExtra" value="' + (tAdd === "juicio" ? "" : "4") + '"></label></div>' +
         (tAdd === "juicio" ? '<label class="photo-pick">Foto de la citación (opcional)<input type="file" id="taFiles" accept="image/*" multiple></label>' : "") +
@@ -1649,15 +1656,19 @@ dialog.viewer .btn { background: #2b2b2b; color: #fff; box-shadow: none; }
   }
   const shiftChanged = () => { scheduleAll(today()); save(); render(); };
   document.addEventListener("click", (e) => {
-    const el = e.target.closest("[data-tpick],[data-tset],[data-tadd],[data-tcyc],[data-tcycadd],[data-tcycdel],#taSave,#taCancel,#tPrev,#tNext,#prefShifts");
+    const el = e.target.closest("[data-tpart],[data-tpick],[data-tset],[data-tadd],[data-tcyc],[data-tcycadd],[data-tcycdel],#taSave,#taCancel,#tPrev,#tNext,#prefShifts");
     if (!el) return;
     const ds = el.dataset;
     if (el.id === "prefShifts") { if (!state.shifts) state.shifts = defaultShifts(); state.shifts.on = !state.shifts.on; shiftChanged(); if (state.shifts.on) toast("Turnos activados. Revisa tu ciclo en la pestaña Turnos."); return; }
     if (el.id === "tPrev" || el.id === "tNext") { tYM = addMonths(tYM, el.id === "tPrev" ? -1 : 1); tSel = tYM === ymOf(today()) ? today() : tYM + "-01"; tAdd = null; renderTurnos(); return; }
+    if (ds.tpart) { tPart = ds.tpart; document.querySelectorAll("[data-tpart]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.tpart === tPart)); return; }
     if (ds.tpick) { tSel = ds.tpick; tAdd = null; delArmed = null; renderTurnos(); return; }
     if (ds.tset != null) { if (ds.tset) SH().over[tSel] = ds.tset; else delete SH().over[tSel]; shiftChanged(); return; }
     if (ds.tadd) { tAdd = ds.tadd; renderTurnos(); setTimeout(() => $("taTitle") && $("taTitle").focus(), 30); return; }
     if (el.id === "taCancel") { tAdd = null; renderTurnos(); return; }
+    if (el.id === "taSave" && tAdd === "carrera") { const lugar = $("taTitle").value.trim(); if (!lugar) { $("taTitle").focus(); return; }
+      state.events.push({ id: uid(), title: lugar, date: tSel, start: tPart === "m" ? "08:00" : "15:00", end: tPart === "m" ? "14:00" : "21:00", weekly: false, until: null, kind: "carrera", part: tPart, place: lugar });
+      const d0 = tSel, pt = tPart; tAdd = null; tPart = "m"; shiftChanged(); toast("Carrera en " + lugar + " el " + fmt(d0) + " por la " + (pt === "m" ? "mañana" : "tarde") + "."); return; }
     if (el.id === "taSave") { const ti = $("taTitle").value.trim() || (tAdd === "juicio" ? "Juicio" : "Carrera"), st = $("taTime").value || "09:00", ex = $("taExtra").value;
       const dur = tAdd === "juicio" ? 180 : Math.max(1, +ex || 4) * 60, en = hhmm(Math.min(toMin(st) + dur, 1439));
       const files = $("taFiles") ? [...$("taFiles").files] : [], k = tAdd, day = tSel;
