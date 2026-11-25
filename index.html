@@ -2070,12 +2070,21 @@ dialog.viewer .btn { background: #2b2b2b; color: #fff; box-shadow: none; }
     }
     syncing = false; render();
   }
-  async function cloudAction(fn) { cloudStatus = { msg: "Un momento…", busy: true }; renderCloud(); try { await fn(); } catch (e) { cloudStatus = { msg: niceErr(e), err: true }; } renderCloud(); }
+  async function cloudAction(fn, busyMsg) {
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    cloudStatus = { msg: busyMsg || "Un momento…", busy: true }; renderCloud(true);
+    try { await fn(); } catch (e) { cloudStatus = { msg: niceErr(e), err: true }; }
+    renderCloud(true);
+  }
   function niceErr(e) {
     const m = String((e && (e.message || e.error_description)) || e);
     if (/Invalid login/i.test(m)) return "Email o contraseña incorrectos. Si es la primera vez, pulsa «Crear cuenta» en vez de «Entrar».";
     if (/Email not confirmed/i.test(m)) return "Confirma tu email con el enlace que te ha llegado y vuelve a entrar.";
     if (/already registered/i.test(m)) return "Ese email ya tiene cuenta. Entra con «Entrar».";
+    if (/rate limit/i.test(m)) return "Supabase ha enviado demasiados emails seguidos. Espera una hora o desactiva «Confirm email» en Supabase y vuelve a intentarlo.";
+    if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return "No llego a Supabase. Revisa la conexión a internet y la URL del proyecto.";
+    if (/Invalid API key|No API key/i.test(m)) return "La clave no es válida. Pulsa «Cambiar conexión» y pega la clave anon (publishable).";
+    if (/signups? not allowed|Signups not allowed/i.test(m)) return "Los registros están desactivados en Supabase. Actívalos un momento en Authentication.";
     if (/Password should be/i.test(m)) return "La contraseña tiene que tener al menos 6 caracteres.";
     if (/decrypt|operation/i.test(m)) return "La clave de la casa no coincide.";
     return m;
@@ -2087,11 +2096,11 @@ dialog.viewer .btn { background: #2b2b2b; color: #fff; box-shadow: none; }
     if (m) { cloud.household = m.household_id; cloud.salt = m.households.salt; cloud.code = m.households.invite_code; state.myRole = m.role; cloud.myName = m.name; }
     saveCloud(); save();
   }
-  function renderCloud() {
+  function renderCloud(force) {
     const el = $("cloudCard"); if (!el) return;
-    const c = cfg(), st = cloudStatus.msg ? '<p class="small" style="color:' + (cloudStatus.err ? "var(--over)" : "var(--muted)") + '">' + esc(cloudStatus.msg) + "</p>" : "";
+    const c = cfg(), st = cloudStatus.msg ? '<div class="alert' + (cloudStatus.err ? "" : " note-ok") + '"' + (cloudStatus.busy ? ' style="background:var(--soft);color:var(--ink)"' : "") + '><span>' + esc(cloudStatus.msg) + "</span></div>" : "";
     $("cSync").innerHTML = ready() ? '<span class="sync-dot ' + (cloudStatus.err ? "err" : "on") + '"></span>' + (cloudStatus.err ? "Sin sincronizar" : "Sincronizado") : '<span class="sync-dot"></span>Solo en este móvil';
-    if (el.contains(document.activeElement) && document.activeElement.tagName === "INPUT") return;
+    if (!force && el.contains(document.activeElement) && document.activeElement.tagName === "INPUT") return;
     let h = '<div class="card-h">Cuenta y casa compartida</div>';
     if (!c.url) {
       h += '<p class="small muted">Para compartir Casa con tu pareja hace falta conectar vuestra base de datos privada (Supabase). Mientras tanto, todo funciona solo en este móvil.</p>' +
@@ -2119,8 +2128,15 @@ dialog.viewer .btn { background: #2b2b2b; color: #fff; box-shadow: none; }
     const id = e.target.id;
     if (id === "cfSave") { let u = $("cfUrl").value.trim(); try { u = new URL(/^https?:\/\//.test(u) ? u : "https://" + u).origin; } catch (err) { u = ""; } const k = $("cfKey").value.trim().replace(/\s+/g, ""); if (!/^https:\/\/.+/.test(u) || k.length < 20) { cloudStatus = { msg: "Revisa la URL y la clave.", err: true }; renderCloud(); return; } cloud.url = u; cloud.key = k; saveCloud(); sb = null; cloudStatus = {}; renderCloud(); }
     else if (id === "auIn" || id === "auUp") { const em = $("auEmail").value.trim().toLowerCase(), pw = $("auPass").value; if (!em || !pw) return;
-      cloudAction(async () => { if (id === "auUp") { const d = await api.signUp(em, pw); if (!d.session) { cloudStatus = { msg: "Te hemos enviado un email. Pulsa el enlace para confirmar la cuenta y luego vuelve aquí y pulsa «Entrar».", err: false }; return; } } else await api.signIn(em, pw);
-        await afterLogin(); await restoreKey(); cloudStatus = { msg: "", err: false }; if (ready()) await syncNow(); }); }
+      if (id === "auUp" && pw.length < 6) { cloudStatus = { msg: "La contraseña tiene que tener al menos 6 caracteres.", err: true }; renderCloud(true); return; }
+      cloudAction(async () => {
+        if (id === "auUp") {
+          const d = await api.signUp(em, pw);
+          if (d && d.user && Array.isArray(d.user.identities) && d.user.identities.length === 0) { cloudStatus = { msg: "Ese email ya tiene cuenta. Pulsa «Entrar» con su contraseña.", err: true }; return; }
+          if (!d || !d.session) { cloudStatus = { msg: "Cuenta creada. Te ha llegado un email de Supabase (mira también en spam): pulsa el enlace para confirmarla y luego vuelve aquí y pulsa «Entrar».", err: false }; return; }
+        } else await api.signIn(em, pw);
+        await afterLogin(); await restoreKey(); cloudStatus = { msg: id === "auUp" ? "Cuenta creada. Ahora crea la casa." : "", err: false }; if (ready()) await syncNow();
+      }, id === "auUp" ? "Creando la cuenta…" : "Entrando…"); }
     else if (id === "hhCreate" || id === "hhJoin") { const nm = $("hhName").value.trim(), pw = $("hhPass").value, code = $("hhCode").value.trim();
       if (!nm) { cloudStatus = { msg: "Escribe tu nombre.", err: true }; renderCloud(); return; }
       if (pw.length < 8) { cloudStatus = { msg: "La clave de la casa tiene que tener al menos 8 caracteres.", err: true }; renderCloud(); return; }
