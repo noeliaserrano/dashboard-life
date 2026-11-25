@@ -2115,7 +2115,7 @@ dialog.viewer .btn { background: #2b2b2b; color: #fff; box-shadow: none; }
   }
   document.addEventListener("click", (e) => {
     const id = e.target.id;
-    if (id === "cfSave") { const u = $("cfUrl").value.trim().replace(/\/+$/, ""), k = $("cfKey").value.trim(); if (!/^https:\/\/.+/.test(u) || k.length < 20) { cloudStatus = { msg: "Revisa la URL y la clave.", err: true }; renderCloud(); return; } cloud.url = u; cloud.key = k; saveCloud(); sb = null; cloudStatus = {}; renderCloud(); }
+    if (id === "cfSave") { let u = $("cfUrl").value.trim(); try { u = new URL(/^https?:\/\//.test(u) ? u : "https://" + u).origin; } catch (err) { u = ""; } const k = $("cfKey").value.trim().replace(/\s+/g, ""); if (!/^https:\/\/.+/.test(u) || k.length < 20) { cloudStatus = { msg: "Revisa la URL y la clave.", err: true }; renderCloud(); return; } cloud.url = u; cloud.key = k; saveCloud(); sb = null; cloudStatus = {}; renderCloud(); }
     else if (id === "auIn" || id === "auUp") { const em = $("auEmail").value.trim(), pw = $("auPass").value; if (!em || !pw) return;
       cloudAction(async () => { if (id === "auUp") { const d = await api.signUp(em, pw); if (!d.session) { cloudStatus = { msg: "Te hemos enviado un email. Pulsa el enlace para confirmar la cuenta y luego vuelve aquí y pulsa «Entrar».", err: false }; return; } } else await api.signIn(em, pw);
         await afterLogin(); await restoreKey(); cloudStatus = { msg: "", err: false }; if (ready()) await syncNow(); }); }
