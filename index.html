@@ -407,6 +407,7 @@ dialog.viewer .btn { background: #2b2b2b; color: #fff; box-shadow: none; }
 <!-- ================= AJUSTES ================= -->
 <section class="view" data-view="ajustes" hidden>
   <div class="top"><div><button class="btn ghost sm" type="button" data-go="inicio">‹ Volver</button><h1>Ajustes</h1></div></div>
+  <p class="xs muted" style="text-align:right">Versión 2026-11-25 · 3</p>
   <div class="card" id="cloudCard"></div>
   <div class="card">
     <div class="card-h">Secciones que uso</div>
@@ -2108,7 +2109,7 @@ dialog.viewer .btn { background: #2b2b2b; color: #fff; box-shadow: none; }
     } else if (!cloud.uid) {
       h += '<p class="small muted">Entra con tu email. Cada uno tiene su propia cuenta.</p><label class="field">Email<input type="email" inputmode="email" id="auEmail" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false"></label><label class="field">Contraseña<input type="password" id="auPass" autocomplete="current-password" autocapitalize="off" autocorrect="off"></label>' +
         '<div class="chips"><button class="btn dark sm" type="button" id="auIn">Entrar</button><button class="btn sm" type="button" id="auUp">Crear cuenta</button></div>' +
-        '<p class="xs muted">Conectada a ' + esc(c.url) + ' · <button class="link xs" type="button" id="cfReset">Cambiar conexión</button></p>';
+        '<p class="xs muted">Conectada a ' + esc(c.url) + ' · <button class="link xs" type="button" id="cfReset">Cambiar conexión</button> · <button class="link xs" type="button" id="cfTest">Comprobar conexión</button></p>';
     } else if (!cloud.household) {
       h += '<p class="small">Hola, ' + esc(cloud.email) + '. Ahora cread la casa: una persona la crea y la otra se une con el código.</p>' +
         '<label class="field">Tu nombre<input type="text" id="hhName"></label><label class="field">Clave de la casa (la sabréis solo vosotros, mín. 8 caracteres)<input type="password" id="hhPass" autocomplete="new-password"></label>' +
@@ -2155,9 +2156,27 @@ dialog.viewer .btn { background: #2b2b2b; color: #fff; box-shadow: none; }
     else if (id === "hhUnlock") { const pw = $("hhPass2").value; cloudAction(async () => { cryptoKey = await deriveKey(pw, cloud.salt); const rows = await api.getRows(["shared:" + cloud.household]);
       if (rows[0]) { try { await decryptObj(rows[0]); } catch (err) { cryptoKey = null; throw new Error("La clave de la casa no coincide."); } } await keepKey(); await syncNow(); }); }
     else if (id === "syncBtn") syncNow();
+    else if (id === "cfTest") cloudAction(async () => { cloudStatus = { msg: await diagnose(), err: false }; }, "Comprobando…");
     else if (id === "cfReset") { delete cloud.url; delete cloud.key; saveCloud(); sb = null; cloudStatus = {}; renderCloud(); }
     else if (id === "auOut") cloudAction(async () => { await api.signOut(); ["uid", "email", "household", "salt", "code", "jwk", "partner", "lastSync", "personalAt"].forEach((k) => delete cloud[k]); cryptoKey = null; saveCloud(); });
   });
+  // Pregunta a Supabase cómo está configurado (no necesita cuenta).
+  async function diagnose() {
+    const c = cfg(); if (!c.url || !c.key) return "Falta la URL o la clave.";
+    let r;
+    try { r = await fetch(c.url + "/auth/v1/settings", { headers: { apikey: c.key, Authorization: "Bearer " + c.key } }); }
+    catch (e) { throw new Error("No llego a " + c.url + ". Revisa la URL y la conexión a internet."); }
+    if (r.status === 401 || r.status === 403) throw new Error("Supabase no acepta la clave. Pulsa «Cambiar conexión» y pega la clave anon (publishable), no la secret.");
+    if (!r.ok) throw new Error("Supabase responde con error " + r.status + ". Revisa la URL del proyecto.");
+    const j = await r.json().catch(() => ({}));
+    const parts = ["Conexión correcta con Supabase."];
+    parts.push(j.disable_signup ? "Los registros nuevos están DESACTIVADOS: actívalos en Authentication para poder crear la cuenta." : "Se pueden crear cuentas.");
+    parts.push(j.mailer_autoconfirm ? "No pide confirmar el email: al crear la cuenta entras directamente." : "Pide confirmar el email: tras crear la cuenta te llega un correo (mira en spam).");
+    let sdk = "La librería de conexión carga bien.";
+    try { await loadSdk(); } catch (e) { sdk = "No carga la librería de conexión (cdn.jsdelivr.net). Prueba con otra red o sin bloqueador de contenido."; }
+    parts.push(sdk);
+    return parts.join(" ");
+  }
   function defaultFresh() {
     const money = defaultMoney(false);
     return { v: 3, sample: false, weekColor: {}, notes: [], plans: [], plansV: 1, daysOff: [], events: [], routines: {}, schedV: 2, money };
